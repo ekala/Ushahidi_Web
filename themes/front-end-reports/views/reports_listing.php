@@ -37,6 +37,7 @@
 		<!-- /Top reportbox section-->
 		
 		<!-- Report listing -->
+		<div class="r_cat_tooltip"> <a href="#" class="r-3">2a. Structures a risque | Structures at risk</a> </div>
 		<div class="rb_list-and-map-box">
 			<div id="rb_list-view">
 			<?php
