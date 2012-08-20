@@ -60,7 +60,7 @@ class ReportsImporter {
 		$temp_cat = array();
 		foreach($this->category_ids as $key=>$value)
 		{
-			$temp_cat[strtoupper($key)] = $value;
+			$temp_cat[utf8::strtoupper($key)] = $value;
 		}
 		$this->category_ids = $temp_cat;
 		
@@ -178,7 +178,7 @@ class ReportsImporter {
 			foreach ($categorynames as $categoryname)
 			{
 				// There seems to be an uppercase convention for categories... Don't know why
-				$categoryname = strtoupper(trim($categoryname));
+				$categoryname = utf8::strtoupper(trim($categoryname));
 				
 				// For purposes of adding an entry into the incident_category table
 				$incident_category = new Incident_Category_Model();
@@ -187,26 +187,28 @@ class ReportsImporter {
 				// If category name exists, add entry in incident_category table
 				if ($row['CATEGORY'] != '')
 				{
-					if (!isset($this->category_ids[$categoryname]))
+					if($categoryname != '')
 					{
-						$this->notices[] = 'There exists no category "'.htmlspecialchars($categoryname).'" in database yet.'
-						.' Added to database.';
-						$category = new Category_Model;
-						$category->category_title = $categoryname;
-						// We'll just use black for now. Maybe something random?
-						$category->category_color = '000000'; 
-						// because all current categories are of type '5'
-						$category->category_type = 5; 
-						$category->category_visible = 1;
-						$category->category_description = $categoryname;
-						$category->save();
-						$this->categories_added[] = $category->id;
-						// Now category_id is known: This time, and for the rest of the import.
-						$this->category_ids[$categoryname] = $category->id; 
+						if (!isset($this->category_ids[$categoryname]))
+						{
+							$this->notices[] = 'There exists no category "'.htmlspecialchars($categoryname).'" in database yet.'
+							.' Added to database.';
+							$category = new Category_Model;
+							$category->category_title = $categoryname;
+							// We'll just use black for now. Maybe something random?
+							$category->category_color = '000000'; 
+							// because all current categories are of type '5'
+							$category->category_visible = 1;
+							$category->category_description = $categoryname;
+							$category->save();
+							$this->categories_added[] = $category->id;
+							// Now category_id is known: This time, and for the rest of the import.
+							$this->category_ids[$categoryname] = $category->id; 
+						}
+						$incident_category->category_id = $this->category_ids[$categoryname];
+						$incident_category->save();
+						$this->incident_categories_added[] = $incident_category->id;
 					}
-					$incident_category->category_id = $this->category_ids[$categoryname];
-					$incident_category->save();
-					$this->incident_categories_added[] = $incident_category->id;
 				}
 				
 				else
@@ -216,7 +218,7 @@ class ReportsImporter {
 					$incident_update->incident_active = 0;
 					$incident_update->save();
 
-					// Assign reports to special category for orphaned reports: NONE
+					// Assign reports to special category for uncategorized reports: NONE
 					$incident_category->category_id = '5';
 					$incident_category->save();
 				}	
@@ -231,7 +233,7 @@ class ReportsImporter {
 			$incident_update->incident_active = 0;
 			$incident_update->save();
 			
-			// Assign reports to special category for orphaned reports: NONE
+			// Assign reports to special category for uncategorized reports: NONE
 			$incident_category = new Incident_Category_Model();
 			$incident_category->incident_id = $incident->id;
 			$incident_category->category_id = '5';

@@ -73,7 +73,10 @@ class Profile_Controller extends Admin_Controller
 					$user->name = $post->name;
 					$user->email = $post->email;
 					$user->notify = $post->notify;
-					$post->new_password != '' ? $user->password = $post->new_password : '';
+					if ($post->new_password != '')
+                    {
+                        $user->password = $post->new_password;
+                    }
 					$user->save();
 
 	                // We also need to update the RiverID server with the new password if
@@ -123,7 +126,7 @@ class Profile_Controller extends Admin_Controller
         $this->template->content->errors = $errors;
         $this->template->content->form_error = $form_error;
         $this->template->content->form_saved = $form_saved;
-        $this->template->content->yesno_array = array('1'=>strtoupper(Kohana::lang('ui_main.yes')),'0'=>strtoupper(Kohana::lang('ui_main.no')));
+        $this->template->content->yesno_array = array('1'=>utf8::strtoupper(Kohana::lang('ui_main.yes')),'0'=>utf8::strtoupper(Kohana::lang('ui_main.no')));
 
         // Javascript Header
     }

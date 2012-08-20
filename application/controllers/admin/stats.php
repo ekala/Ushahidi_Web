@@ -13,31 +13,31 @@
  * @license    http://www.gnu.org/copyleft/lesser.html GNU Lesser General Public License (LGPL) 
  */
 
-class Stats_Controller extends Admin_Controller
-{
-    function __construct()
-    {
-        parent::__construct();
-        $this->template->this_page = 'stats';
-        
-        // If user doesn't have access, redirect to dashboard
-        if ( ! admin::permissions($this->user, "stats"))
-        {
-            url::redirect(url::site().'admin/dashboard');
-        }
+class Stats_Controller extends Admin_Controller {
+
+	public function __construct()
+	{
+		parent::__construct();
+		$this->template->this_page = 'stats';
+
+		// If user doesn't have access, redirect to dashboard
+		if ( ! $this->auth->has_permission("stats"))
+		{
+			url::redirect(url::site().'admin/dashboard');
+		}
     }
-    
+
 	public function index()
 	{   
-		$this->template->content = new View('admin/stats_hits');
+		$this->template->content = new View('admin/stats/hits');
 		$this->template->content->title = Kohana::lang('ui_admin.statistics');
 
 		// Retrieve Current Settings
-		$settings = ORM::factory('settings', 1);
+		$stat_id = Settings_Model::get_setting('stat_id');
 
-		if($settings->stat_id === null || $settings->stat_id == 0)
+		if ($stat_id === NULL OR $stat_id == 0)
 		{
-			$sitename = $settings->site_name;
+			$sitename = Settings_Model::get_setting('site_name');
 			$url = url::base();
 			$this->template->content->stat_id = Stats_Model::create_site( $sitename, $url );
 		}
@@ -51,39 +51,39 @@ class Stats_Controller extends Admin_Controller
 	 */
 	public function reports()
 	{
-		$this->template->content = new View('admin/stats_reports');
+		$this->template->content = new View('admin/stats/reports');
 		$this->template->content->title = Kohana::lang('ui_admin.statistics');
 
 		// Javascript Header
 		$this->template->protochart_enabled = TRUE;
-		$this->template->js = new View('admin/stats_js');
+		$this->template->js = new View('admin/stats/stats_js');
 
 		$this->template->content->failure = '';
 
 		// Set the date range (how many days in the past from today?)
 		$range = 10000;
-		if ( isset($_GET['range']))
+		if (isset($_GET['range']))
 		{
 			$range = $this->input->xss_clean($_GET['range']);
 			$range = (intval($range) > 0)? intval($range) : 10000;
 		}
 
 		$this->template->content->range = $range;
-        
+      
 		// Get an arbitrary date range
 		$dp1 = (isset($_GET['dp1'])) ? $_GET['dp1'] : null;
 		$dp2 = (isset($_GET['dp2'])) ? $_GET['dp2'] : null;
 
 		// Report Data
 		$data = Stats_Model::get_report_stats(false,false,$range,$dp1,$dp2);
-		
+
 		$reports_chart = new protochart;
-		
+
 		// This makes the chart a delicious pie chart
 		$options = array(
 			'pies'=>array('show'=>'true')
 		);
-		
+
 		// Grab category data
 		$cats = Category_Model::categories();
 
@@ -105,10 +105,10 @@ class Stats_Controller extends Admin_Controller
 					? $cats[$category_id]['category_color']
 					: 'FFFFFF';
 
-				foreach($count as $c)
+				foreach ($count as $c)
 				{             
 					// Count up the total number of reports per category
-					if( ! isset($reports_per_cat[$category_id]))
+					if ( ! isset($reports_per_cat[$category_id]))
 					{
                         $reports_per_cat[$category_id] = 0;
                     }
@@ -117,6 +117,8 @@ class Stats_Controller extends Admin_Controller
 				}
 			}
 		}
+		asort($reports_per_cat, SORT_NUMERIC);
+		$reports_per_cat = array_reverse($reports_per_cat, TRUE);
 		
 		$this->template->content->num_categories = $data['total_categories'];
 		$this->template->content->reports_per_cat = $reports_per_cat;
@@ -131,7 +133,7 @@ class Stats_Controller extends Admin_Controller
 		$report_status_chart = new protochart;
 		$report_staus_data = array();
         
-        foreach($data['verified_counts'] as $ver_or_un => $arr)
+        foreach ($data['verified_counts'] as $ver_or_un => $arr)
         {
             if ( ! isset($report_staus_data[$ver_or_un][0]))
             {
@@ -155,7 +157,8 @@ class Stats_Controller extends Admin_Controller
         
         $report_staus_data = array();
         
-        foreach($data['approved_counts'] as $app_or_un => $arr){
+		foreach ($data['approved_counts'] as $app_or_un => $arr)
+		{
             if ( ! isset($report_staus_data[$app_or_un][0]))
             {
                 $report_staus_data[$app_or_un][0] = 0;
@@ -183,14 +186,14 @@ class Stats_Controller extends Admin_Controller
         $this->template->content->dp2 = date('Y-m-d',$data['latest_report_time']);
     }
     
-    function impact()
+    public function impact()
     {
-        $this->template->content = new View('admin/stats_impact');
+        $this->template->content = new View('admin/stats/impact');
         $this->template->content->title = Kohana::lang('ui_admin.statistics');
         
         // Javascript Header
         $this->template->raphael_enabled = TRUE;
-        $this->template->js = new View('admin/stats_js');
+        $this->template->js = new View('admin/stats/stats_js');
         
         $this->template->content->failure = '';
         
@@ -218,16 +221,15 @@ class Stats_Controller extends Admin_Controller
             return false;
         }
         
-        $json = '';
+        $json = array();
         $use_log = '';
-        $json .= '"buckets":['."\n";
+        $json['buckets'] = array();
         $cat_report_count = array();
         $category_counter = array();
         
         foreach($data['category_counts'] as $timestamp => $count_array)
         {
-            $comma_flag = false;
-            $line = '';
+            $line = array();
             // If this number is greater than 0, we'll show the line
             $display_test = 0;
             foreach($count_array as $category_id => $count)
@@ -237,15 +239,12 @@ class Stats_Controller extends Admin_Controller
                 // We aren't allowing 0s
                 if($count > 0)
                 {
-                    if($comma_flag) $line .= ',';
-                    $comma_flag = true;
-                    
-                    $line .= '['.$category_id.','.$count.']';
+                    $line[] = array($category_id, $count);
                     
                     $display_test += $count;
                     
                     // If we see a count over 50 (picked this arbitrarily), then switch to log format
-                    if($count > 50) $use_log = '"use_log":1,'."\n";
+                    if($count > 50) $use_log = 1;
                     
                     // Count the number of reports so we have something useful to show in the legend
                     if ( ! isset($cat_report_count[$category_id])) $cat_report_count[$category_id] = 0;
@@ -254,19 +253,18 @@ class Stats_Controller extends Admin_Controller
             }
             if ($display_test > 0)
             {
-                $json .= '{"d":'.$timestamp.',"i":[';
-                $json .= $line;
-                $json .= ']},'."\n";
+                $json['buckets'][] = array(
+                  'd' => $timestamp,
+                  'i' => $line
+                );
             }
         }
         
         $this->template->content->num_reports = $data['total_reports'];
         $this->template->content->num_categories = $data['total_categories'];
         
-        $json .= '],'."\n";
-        $json .= $use_log;
-        $json .= '"categories":'."\n";
-        $json .= '{'."\n";
+        $json['use_log'] = $use_log;
+        $json['categories'] = array();
         
         // Grab category data
         $cats = Category_Model::categories();
@@ -279,12 +277,14 @@ class Stats_Controller extends Admin_Controller
                 $report_count = $cat_report_count[$category_id];
             }
             
-            $json .= $category_id.':{"name":"'.$cat_array['category_title'].'","fill":"#'.$cat_array['category_color'].'","reports":'.$report_count.'},'."\n";
+            $json['categories'][$category_id] = array(
+              "name" => $cat_array['category_title'],
+              "fill" => '#'.$cat_array['category_color'],
+              "reports" => $report_count
+            );
         }
         
-        $json .= '}'."\n";
-        
-        $this->template->impact_json = $json;
+        $this->template->impact_json = json_encode($json);
         
         // Set the date
         $this->template->content->dp1 = date('Y-m-d',$data['earliest_report_time']);
@@ -292,14 +292,14 @@ class Stats_Controller extends Admin_Controller
         
     }
     
-    function hits()
+	public function hits()
     {
-        $this->template->content = new View('admin/stats_hits');
+        $this->template->content = new View('admin/stats/hits');
         $this->template->content->title = Kohana::lang('ui_admin.statistics');
         
         // Javascript Header
         $this->template->protochart_enabled = TRUE;
-        $this->template->js = new View('admin/stats_js');
+        $this->template->js = new View('admin/stats/stats_js');
         
         $this->template->content->failure = '';
         
@@ -368,11 +368,11 @@ class Stats_Controller extends Admin_Controller
     
     function country()
     {
-        $this->template->content = new View('admin/stats_country');
+        $this->template->content = new View('admin/stats/country');
         $this->template->content->title = Kohana::lang('ui_admin.statistics');
         
         // Javascript Header
-        $this->template->js = new View('admin/stats_js');
+        $this->template->js = new View('admin/stats/stats_js');
         
         $this->template->content->failure = '';
         
@@ -492,7 +492,7 @@ class Stats_Controller extends Admin_Controller
     
     function punchcard()
 	{
-		$this->template->content = new View('admin/stats_punchcard');
+		$this->template->content = new View('admin/stats/punchcard');
 		$this->template->content->title = Kohana::lang('ui_admin.statistics');
 
 		$incident_dates = Incident_Model::get_incident_dates();

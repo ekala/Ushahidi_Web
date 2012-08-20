@@ -28,6 +28,24 @@ $config['index_page'] = 'index.php';
 $config['enable_auto_upgrader'] = TRUE;
 
 /**
+ * The admin panel shows a warning if you upgrade your deployment
+ * code but not the database. Setting this to false disabled that
+ * warning.
+ */
+$config['enable_ver_sync_warning'] = TRUE;
+
+/**
+ * The admin panel shows a warning if you haven't changed your 
+ * encryption key. Set this to false to disable
+ */
+$config['enable_security_info'] = TRUE;
+
+/**
+ * Include Google Analytics (if set) on admin panel
+ */
+$config['google_analytics_in_admin'] = TRUE;
+
+/**
  * Fake file extension that will be added to all generated URLs. Example: .html
  */
 $config['url_suffix'] = '';
@@ -76,9 +94,16 @@ $config['log_threshold'] = 1;
  */
 $config['log_directory'] = APPPATH.'logs';
 
-if (@!is_writable($config["log_directory"])) {
+if ( ! @is_writable($config["log_directory"]))
+{
 	$config["log_threshold"] = 0;
 }
+
+/**
+ * The scheduler removes old logs. Set to false to disable or an int for the
+ * number of days to keep old logs.
+ */
+$config['log_cleanup_days_old'] = 7;
 
 /**
  * Enable or disable displaying of Kohana error pages. This will not affect
@@ -130,9 +155,10 @@ $config['output_scheduler_js'] = TRUE;
  */
 $config['modules'] = array
 (
-	MODPATH.'auth',      // Authentication
+	MODPATH.'auth',         // Authentication
+	MODPATH.'csrf',         // CSRF Handling
 	// MODPATH.'forge',     // Form generation
-	// MODPATH.'formation',     // Form generation
+	// MODPATH.'formation', // Form generation
 	// MODPATH.'kodoc',     // Self-generating documentation
 	// MODPATH.'media',     // Media caching and compression
 	// MODPATH.'archive',   // Archive utility

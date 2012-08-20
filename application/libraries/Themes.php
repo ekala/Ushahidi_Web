@@ -82,40 +82,40 @@ class Themes_Core {
 	private function _header_css()
 	{
 		$core_css = "";
-		$core_css .= html::stylesheet($this->css_url."media/css/jquery-ui-themeroller", "", true);
+		$core_css .= html::stylesheet($this->css_url."media/css/jquery-ui-themeroller", "", TRUE);
 
 		foreach (Kohana::config("settings.site_style_css") as $theme_css)
 		{
-			$core_css .= html::stylesheet($theme_css,"",true);
+			$core_css .= html::stylesheet($theme_css,"",TRUE);
 		}
 
-		$core_css .= "<!--[if lte IE 7]>".html::stylesheet($this->css_url."media/css/iehacks","",true)."<![endif]-->";
-		$core_css .= "<!--[if IE 7]>".html::stylesheet($this->css_url."media/css/ie7hacks","",true)."<![endif]-->";
-		$core_css .= "<!--[if IE 6]>".html::stylesheet($this->css_url."media/css/ie6hacks","",true)."<![endif]-->";
+		$core_css .= "<!--[if lte IE 7]>".html::stylesheet($this->css_url."media/css/iehacks","",TRUE)."<![endif]-->";
+		$core_css .= "<!--[if IE 7]>".html::stylesheet($this->css_url."media/css/ie7hacks","",TRUE)."<![endif]-->";
+		$core_css .= "<!--[if IE 6]>".html::stylesheet($this->css_url."media/css/ie6hacks","",TRUE)."<![endif]-->";
 
 		if ($this->map_enabled)
 		{
-			$core_css .= html::stylesheet($this->css_url."media/css/openlayers","",true);
+			$core_css .= html::stylesheet($this->css_url."media/css/openlayers","",TRUE);
 		}
 
 		if ($this->treeview_enabled)
 		{
-			$core_css .= html::stylesheet($this->css_url."media/css/jquery.treeview","",true);
+			$core_css .= html::stylesheet($this->css_url."media/css/jquery.treeview","",TRUE);
 		}
 
 		if ($this->photoslider_enabled)
 		{
-			$core_css .= html::stylesheet($this->css_url."media/css/picbox/picbox","",true);
+			$core_css .= html::stylesheet($this->css_url."media/css/picbox/picbox","",TRUE);
 		}
 
 		if ($this->videoslider_enabled)
 		{
-			$core_css .= html::stylesheet($this->css_url."media/css/videoslider","",true);
+			$core_css .= html::stylesheet($this->css_url."media/css/videoslider","",TRUE);
 		}
 
 		if ($this->colorpicker_enabled)
 		{
-			$core_css .= html::stylesheet($this->css_url."media/css/colorpicker","",true);
+			$core_css .= html::stylesheet($this->css_url."media/css/colorpicker","",TRUE);
 		}
 
 		if ($this->site_style AND $this->site_style != "default")
@@ -123,7 +123,8 @@ class Themes_Core {
 			$core_css .= html::stylesheet($this->css_url."themes/".$site_style."/style.css");
 		}
 
-		$core_css .= html::stylesheet($this->css_url."media/css/global","",true);
+		$core_css .= html::stylesheet($this->css_url."media/css/global","",TRUE);
+		$core_css .= html::stylesheet($this->css_url."media/css/jquery.jqplot.min", "", TRUE);
 
 		// Render CSS
 		$plugin_css = plugin::render('stylesheet');
@@ -139,30 +140,35 @@ class Themes_Core {
 		$core_js = "";
 		if ($this->map_enabled)
 		{
-			$core_js .= html::script($this->js_url."media/js/OpenLayers", true);
+			$core_js .= html::script($this->js_url."media/js/OpenLayers", TRUE);
 			$core_js .= "<script type=\"text/javascript\">OpenLayers.ImgPath = '".$this->js_url."media/img/openlayers/"."';</script>";
+			$core_js .= html::script($this->js_url."media/js/ushahidi", TRUE);
 		}
 
-		$core_js .= html::script($this->js_url."media/js/jquery", true);
-		//$core_js .= html::script($this->js_url."media/js/jquery.ui.min", true);
-		$core_js .= html::script("https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.13/jquery-ui.min.js", true);
-		$core_js .= html::script($this->js_url."media/js/jquery.pngFix.pack", true);
-		$core_js .= html::script($this->js_url."media/js/jquery.timeago", true);
+		$core_js .= html::script($this->js_url."media/js/jquery", TRUE);
+		//$core_js .= html::script($this->js_url."media/js/jquery.ui.min", TRUE);
+		$core_js .= html::script("https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.13/jquery-ui.min.js", TRUE);
+		$core_js .= html::script($this->js_url."media/js/jquery.pngFix.pack", TRUE);
+		$core_js .= html::script($this->js_url."media/js/jquery.timeago", TRUE);
 
 		if ($this->map_enabled)
 		{
+
 			$core_js .= $this->api_url;
 
 			if ($this->main_page || $this->this_page == "alerts")
 			{
-				$core_js .= html::script($this->js_url."media/js/selectToUISlider.jQuery", true);
+				$core_js .= html::script($this->js_url."media/js/selectToUISlider.jQuery", TRUE);
 			}
 
 			if ($this->main_page)
 			{
-				$core_js .= html::script($this->js_url."media/js/jquery.flot", true);
-				$core_js .= html::script($this->js_url."media/js/timeline", true);
-				$core_js .= "<!--[if IE]>".html::script($this->js_url."media/js/excanvas.min", true)."<![endif]-->";
+				// Notes: E.Kala <emmanuel(at)ushahidi.com>
+				// TODO: Only include the jqplot JS when the timeline is enabled
+				$core_js .= html::script($this->js_url."media/js/jquery.jqplot.min");
+				$core_js .= html::script($this->js_url."media/js/jqplot.dateAxisRenderer.min");
+
+				$core_js .= "<!--[if IE]>".html::script($this->js_url."media/js/excanvas.min", TRUE)."<![endif]-->";
 			}
 		}
 
@@ -178,10 +184,10 @@ class Themes_Core {
 
 		if ($this->photoslider_enabled)
 		{
-			$core_js .= html::script($this->js_url."media/js/picbox", true);
+			$core_js .= html::script($this->js_url."media/js/picbox", TRUE);
 		}
 
-		if($this->videoslider_enabled )
+		if ($this->videoslider_enabled)
 		{
 			$core_js .= html::script($this->js_url."media/js/coda-slider.pack");
 		}
@@ -204,7 +210,7 @@ class Themes_Core {
 		// Javascript files from themes
 		foreach (Kohana::config("settings.site_style_js") as $theme_js)
 		{
-			$core_js .= html::script($theme_js,"",true);
+			$core_js .= html::script($theme_js,"",TRUE);
 		}
 
 		// Inline Javascript
@@ -258,30 +264,11 @@ function runScheduler(img){img.onload = null;img.src = '".url::site().'scheduler
 		// *** Locales/Languages ***
 		// First Get Available Locales
 
-		$locales = $this->cache->get('locales');
-
-		// If we didn't find any languages, we need to look them up and set the cache
-		if( ! $locales)
-		{
-			$locales = locale::get_i18n();
-			$this->cache->set('locales', $locales, array('locales'), 604800);
-		}
-
-		// Locale form submitted?
-		if (isset($_GET['l']) && !empty($_GET['l']))
-		{
-			$this->session->set('locale', $_GET['l']);
-		}
-		// Has a locale session been set?
-		if ($this->session->get('locale',FALSE))
-		{
-			// Change current locale
-			Kohana::config_set('locale.language', $_SESSION['locale']);
-		}
+		$locales = ush_locale::get_i18n();
 
 		$languages = "";
 		$languages .= "<div class=\"language-box\">";
-		$languages .= "<form action=\"\">";
+		$languages .= form::open(NULL, array('method' => 'get'));
 
 		/**
 		 * E.Kala - 05/01/2011
@@ -304,7 +291,7 @@ function runScheduler(img){img.onload = null;img.src = '".url::site().'scheduler
 
 		$languages .= form::dropdown('l', $locales, Kohana::config('locale.language'),
 			' onchange="this.form.submit()" ');
-		$languages .= "</form>";
+		$languages .= form::close();
 		$languages .= "</div>";
 
 		return $languages;
@@ -314,12 +301,12 @@ function runScheduler(img){img.onload = null;img.src = '".url::site().'scheduler
 	{
 		$search = "";
 		$search .= "<div class=\"search-form\">";
-		$search .= "<form method=\"get\" id=\"search\" action=\"".url::site()."search/\">";
+		$search .= form::open("search", array('method' => 'get', 'id' => 'search'));
 		$search .= "<ul>";
 		$search .= "<li><input type=\"text\" name=\"k\" value=\"\" class=\"text\" /></li>";
 		$search .= "<li><input type=\"submit\" name=\"b\" class=\"searchbtn\" value=\"".Kohana::lang('ui_main.search')."\" /></li>";
 		$search .= "</ul>";
-		$search .= "</form>";
+		$search .= form::close();
 		$search .= "</div>";
 
 		return $search;
@@ -368,25 +355,47 @@ function runScheduler(img){img.onload = null;img.src = '".url::site().'scheduler
 
 			</script>";
 		}
+
+		// See if we need to disqualify showing the tag on the admin panel
+		if (Kohana::config('config.google_analytics_in_admin') == FALSE
+			AND isset(Router::$segments[0])
+			AND Router::$segments[0] == 'admin')
+		{
+			// Site is configured to not use the google analytics tag in the admin panel
+			//   and we are in the admin panel. Wipe out the tag.
+			$html = '';
+		}
+
+
 		return $html;
 	}
 
-	/*
-	* Scheduler JS Call
-	*/
+	/**
+	 * Scheduler JS Call
+	 *
+	 * @return string
+	 */
 	public function scheduler_js()
 	{
 		if (Kohana::config('config.output_scheduler_js'))
 		{
-			return '<!-- Task Scheduler --><script type="text/javascript">$(document).ready(function(){$(\'#schedulerholder\').html(\'<img src="'.url::base().'scheduler" />\');});</script><div id="schedulerholder"></div><!-- End Task Scheduler -->';
+			return '<!-- Task Scheduler -->'
+			    . '<script type="text/javascript">'
+			    . 'jQuery(document).ready(function(){'
+			    . '	jQuery(\'#schedulerholder\').html(\'<img src="'.url::base().'scheduler" />\');'
+			    . '});'
+                . '</script>'
+                . '<div id="schedulerholder"></div>'
+                . '<!-- End Task Scheduler -->';
 		}
 		return '';
 	}
 
 	/*
 	* CDN Gradual Upgrade JS Call
-	*   This upgrader pushes files from local server to the CDN in a gradual fashion so there doesn't need to
-	*   be any downtime when a deployer makes the switch to a CDN
+	*   This upgrader pushes files from local server to the CDN in a gradual
+	*   fashion so there doesn't need to be any downtime when a deployer makes
+	*   the switch to a CDN
 	*/
 	public function cdn_gradual_upgrade()
 	{
@@ -399,7 +408,8 @@ function runScheduler(img){img.onload = null;img.src = '".url::site().'scheduler
 
 	/*
 	* Ushahidi Stats JS Call
-	*    If a deployer is using Ushahidi to track their stats, this is the JS call for that
+	*    If a deployer is using Ushahidi to track their stats, this is the JS
+	*    call for that
 	*/
 	public function ushahidi_stats_js()
 	{

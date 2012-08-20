@@ -22,6 +22,13 @@ class Auth_ORM_Driver extends Auth_Driver {
 	{
 		$status = FALSE;
 
+		if(kohana::config('riverid.enable') == true)
+		{
+			// RiverID is being used so we need to go through some extra
+			//   steps to authenticate before moving forward
+			self::auto_login();
+		}
+
 		// Get the user from the session
 		$user = $this->session->get($this->config['session_key']);
 
@@ -108,7 +115,8 @@ class Auth_ORM_Driver extends Auth_Driver {
 			{
 				// User has not confirmed email so kill auth cookies and fail login
 				$this->logout(true);
-				throw new Exception('need_email_confirmation');
+				url::redirect('/');
+				return FALSE;
 			}
 		}
 
