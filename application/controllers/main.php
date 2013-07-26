@@ -70,12 +70,12 @@ class Main_Controller extends Template_Controller {
 
 		// Themes Helper
 		$this->themes = new Themes();
+		$this->themes->requirements();
+		$this->themes->frontend = TRUE;
 		$this->themes->api_url = Kohana::config('settings.api_url');
 		$this->template->header->submit_btn = $this->themes->submit_btn();
 		$this->template->header->languages = $this->themes->languages();
 		$this->template->header->search = $this->themes->search();
-		$this->template->header->header_block = $this->themes->header_block();
-		$this->template->footer->footer_block = $this->themes->footer_block();
 
 		// Set Table Prefix
 		$this->table_prefix = Kohana::config('database.default.table_prefix');
@@ -87,11 +87,11 @@ class Main_Controller extends Template_Controller {
 		if (Kohana::config('settings.site_banner_id') != NULL)
 		{
 			$banner = ORM::factory('media')->find(Kohana::config('settings.site_banner_id'));
-			$this->template->header->banner = url::convert_uploaded_to_abs($banner->media_link);
+			$this->template->set_global('banner', url::convert_uploaded_to_abs($banner->media_link));
 		}
 		else
 		{
-			$this->template->header->banner = NULL;
+			$this->template->set_global('banner',NULL);
 		}
 
 		// Prevent Site Name From Breaking up if its too long
@@ -100,9 +100,9 @@ class Main_Controller extends Template_Controller {
 
 		$this->template->header->private_deployment = Kohana::config('settings.private_deployment');
 
-		$this->template->header->site_name = $site_name;
-		$this->template->header->site_name_style = $site_name_style;
-		$this->template->header->site_tagline = Kohana::config('settings.site_tagline');
+		$this->template->set_global('site_name', $site_name);
+		$this->template->set_global('site_name_style', $site_name_style);
+		$this->template->set_global('site_tagline', Kohana::config('settings.site_tagline'));
 
 		// page_title is a special variable that will be overridden by other controllers to
 		//    change the title bar contents
@@ -135,22 +135,8 @@ class Main_Controller extends Template_Controller {
 			$this->template->header->header_nav->loggedin_user = Auth::instance()->get_user();
 		}
 		$this->template->header->header_nav->site_name = Kohana::config('settings.site_name');
-	}
-
-	/**
-	 * Retrieves Categories
-	 */
-	protected function get_categories($selected_categories)
-	{
-	  $categories = ORM::factory('category')
-	    ->where('category_visible', '1')
-	    ->where('parent_id', '0')
-	    ->where('category_trusted != 1')
-	    ->orderby('category_position', 'ASC')
-	    ->orderby('category_title', 'ASC')
-	    ->find_all();
-
-	  return $categories;
+		
+		Event::add('ushahidi_filter.view_pre_render.layout', array($this, '_pre_render'));
 	}
 
 	/**
@@ -203,7 +189,6 @@ class Main_Controller extends Template_Controller {
 		$parent_categories = array();
 		$all_parents = ORM::factory('category')
 		    ->where('category_visible', '1')
-		    ->where('id != 5')
 		    ->where('parent_id', '0')
 		    ->find_all();
 
@@ -305,7 +290,11 @@ class Main_Controller extends Template_Controller {
 
 		// Get external apps
 		$external_apps = array();
-		$external_apps = ORM::factory('externalapp')->find_all();
+		// Catch errors, in case we have an old db
+		try {
+			$external_apps = ORM::factory('externalapp')->find_all();
+		}
+		catch(Exception $e) {}
 		$this->template->content->external_apps = $external_apps;
 
         // Get The START, END and Incident Dates
@@ -424,7 +413,12 @@ class Main_Controller extends Template_Controller {
 
 		// Javascript Header
 		$this->themes->map_enabled = TRUE;
-		$this->themes->main_page = TRUE;
+		$this->themes->slider_enabled = TRUE;
+		
+		if (Kohana::config('settings.enable_timeline'))
+		{
+			$this->themes->timeline_enabled = TRUE;
+		}
 
 		// Map Settings
 		$marker_radius = Kohana::config('map.marker_radius');
@@ -455,8 +449,17 @@ class Main_Controller extends Template_Controller {
 		$this->themes->js->active_endDate = $display_endDate;
 
 		$this->themes->js->blocks_per_row = Kohana::config('settings.blocks_per_row');
-
-		// Build Header and Footer Blocks
+	}
+	
+	/**
+	 * Trigger themes->requirements() at the last minute
+	 * 
+	 * This is in case features are enabled/disabled
+	 */
+	public function _pre_render()
+	{
+		$this->themes->requirements();
+		$this->themes->plugin_requirements();
 		$this->template->header->header_block = $this->themes->header_block();
 		$this->template->footer->footer_block = $this->themes->footer_block();
 	}

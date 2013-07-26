@@ -27,6 +27,19 @@ class Api_Controller extends Controller {
 		// Disables CSRF validation for API requests
 		Validation::$is_api_request = TRUE;
 
+		// Reset session for API requests - since they don't get CSRF checked
+		// AJAX requests are ok - they skip CSRF anyway.
+		if (! request::is_ajax())
+		{
+			// Reset the session - API should be stateless
+			$_SESSION = array();
+			// Especially reset auth
+			Session::instance()->set(Kohana::config('auth.session_key'), null);
+			
+			// Re-authenticate
+			$this->auth->http_auth_login();
+		}
+
 		// Instantiate the API service
 		$api_service = new Api_Service();
 
@@ -35,17 +48,27 @@ class Api_Controller extends Controller {
 
 		// Avoid caching
 		header("Cache-Control: no-cache, must-revalidate"); // HTTP/1.1
-		header("Expires: Sat, 26 Jul 1997 05:00:00 GMT"); // Date in the pas
+		header("Expires: Sat, 26 Jul 1997 05:00:00 GMT"); // Date in the past
 
-		if ($api_service->get_response_type() == 'xml')
+		$resp = '';
+		
+		if ($api_service->get_response_type() == 'jsonp')
+		{
+			header("Content-type: application/json; charset=utf-8");
+			$resp = $_GET['callback'].'('.$api_service->get_response().')';
+		}
+		elseif ($api_service->get_response_type() == 'xml')
 		{
 			header("Content-type: text/xml");    
+			$resp = $api_service->get_response();
 		}
 		else
 		{
 			header("Content-type: application/json; charset=utf-8");
+			$resp =  $api_service->get_response();
 		}
 
-		print $api_service->get_response();
+		print $resp;
+
 	}
 }

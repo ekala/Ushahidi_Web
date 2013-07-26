@@ -2,12 +2,6 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
 <head>
 	<title><?php echo html::specialchars($page_title.$site_name); ?></title>
-	<?php if (!Kohana::config('settings.enable_timeline')) { ?>
-		<style>
-			#graph{display:none;}
-			#map{height:480px;}
-		</style>
-	<?php } ?>
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 	<?php echo $header_block; ?>
 	<?php
@@ -42,7 +36,7 @@
 	<?php echo $header_nav; ?>
 
 	<!-- wrapper -->
-	<div class="rapidxwpr floatholder">
+	<div class="wrapper floatholder rapidxwpr">
 
 		<!-- header -->
 		<div id="header">
@@ -95,7 +89,7 @@
 					</ul>
 
 					<?php if ($allow_feed == 1) { ?>
-					<div style="float:right;"><a href="<?php echo url::site(); ?>feed/"><img src="<?php echo url::file_loc('img'); ?>media/img/icon-feed.png" style="vertical-align: middle;" border="0"></a></div>
+					<div class="feedicon"><a href="<?php echo url::site(); ?>feed/"><img alt="<?php echo html::escape(Kohana::lang('ui_main.rss')); ?>" src="<?php echo url::file_loc('img'); ?>media/img/icon-feed.png" style="vertical-align: middle;" border="0" /></a></div>
 					<?php } ?>
 
 				</div>

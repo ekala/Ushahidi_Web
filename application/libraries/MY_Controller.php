@@ -28,36 +28,57 @@ abstract class Controller extends Controller_Core {
 	 * @var object
 	 */
 	protected $auth;
+
+	/**
+	 * Reference to Database object 
+	 * @var object
+	 */
+	protected $db;
 	
 	public function __construct()
 	{
 		parent::__construct();
 		
 		// Load profiler
-		// $profiler = new Profiler;
-
+		if (Kohana::config('config.enable_profiler'))
+		{
+			$this->profiler = new Profiler;
+		}
+		
 		$this->auth = Auth::instance();
+		
+		$this->db = Database::instance();
+
+		// Are we logged in? if not, do we have an auto-login cookie?
+		if (! $this->auth->logged_in()) {
+			// Try to login with 'remember me' token
+			if (! $this->auth->auto_login())
+			{
+				// Login user in via HTTP AUTH
+				$this->auth->http_auth_login();
+			}
+		}
 
 		// Get session information
 		$this->user = Auth::instance()->get_user();
 
-		// Are we logged in? if not, do we have an auto-login cookie?
-		if (! $this->auth->logged_in()) {
-			$this->auth->auto_login();
-		}
-		
-		// Chceck private deployment access
+		// Check private deployment access
 		$controller_whitelist = array(
 			'login',
-			'riverid'
+			'riverid',
+			'api'
 		);
 
 		if (Kohana::config('settings.private_deployment'))
 		{
 			if (!$this->auth->logged_in('login') AND ! in_array(Router::$controller, $controller_whitelist))
 			{
+				// Redirect to login form
 				url::redirect('login');
 			}
 		}
+		
+		// Set default content-type header
+		header('Content-type: text/html; charset=UTF-8');
 	}
 }

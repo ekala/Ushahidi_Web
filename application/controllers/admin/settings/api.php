@@ -149,7 +149,7 @@ class Api_Controller extends Admin_Controller {
         );
         
         // Javascript header
-        $this->template->js = new View('admin/settings/api/api_js');
+        $this->themes->js = new View('admin/settings/api/api_js');
     }
     
     /**
@@ -246,7 +246,7 @@ class Api_Controller extends Admin_Controller {
                 FROM '.$this->table_prefix.'api_log al
                 LEFT JOIN '.$this->table_prefix.'api_banned AS ab ON (ab.banned_ipaddress = al.api_ipaddress)
                 ORDER BY al.api_date DESC
-                LIMIT ' . $pagination->sql_offset. ', '.$this->items_per_page
+                LIMIT ?, ?', $pagination->sql_offset, $this->items_per_page
             );
         
         /*    
@@ -267,7 +267,7 @@ class Api_Controller extends Admin_Controller {
         $this->template->content->pagination = $pagination;
         
         // Javascript header
-        $this->template->js = new View('admin/settings/api/logs_js');
+        $this->themes->js = new View('admin/settings/api/logs_js');
     }
     
     /**
@@ -349,6 +349,6 @@ class Api_Controller extends Admin_Controller {
         $this->template->content->pagination = $pagination;
         
         // Javascript header
-        $this->template->js = new View('admin/settings/api/banned_js');
+        $this->themes->js = new View('admin/settings/api/banned_js');
     }
 }

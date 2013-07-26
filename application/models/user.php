@@ -27,7 +27,7 @@ class User_Model extends Auth_User_Model {
 	 * @param   string  riverid user id
 	 * @return  object  ORM object from saving the user
 	 */
-	public static function create_user($email,$password,$riverid=false,$name=false)
+	public static function create_user($email, $password, $riverid=FALSE, $name=FALSE)
 	{
 		$user = ORM::factory('user');
 
@@ -35,15 +35,16 @@ class User_Model extends Auth_User_Model {
 		$user->username = User_Model::random_username();
 		$user->password = $password;
 
-		if ($name != false)
+		if (! empty($name))
 		{
 			$user->name = $name;
 		}
-
-		if ($riverid != false)
+		else
 		{
-			$user->riverid = $riverid;
+			$user->needinfo = 1;
 		}
+
+		$user->riverid = ( $riverid == false ) ? '' : $riverid;
 
 		// Add New Roles if:
 		//    1. We don't require admin to approve users (will be added when admin approves)
@@ -150,11 +151,15 @@ class User_Model extends Auth_User_Model {
 			$post->add_callbacks('username', array('User_Model', 'unique_value_exists'));
 			$post->add_callbacks('email', array('User_Model', 'unique_value_exists'));
 		}
+		
+		// Make sure we have a value for password length to avoid PHP error for missing length[] function
+		$password_length = Kohana::config('auth.password_length');
+		$password_length = ( ! empty($password_length)) ? $password_length : '1,127';
 
 		// Only check for the password if the user id has been specified and we are passing a pw
 		if (isset($post->user_id) AND isset($post->password))
 		{
-			$post->add_rules('password','required', 'length['.Kohana::config('auth.password_length').']');
+			$post->add_rules('password','required', 'alpha_dash', 'length['.$password_length.']');
 			$post->add_callbacks('password' ,'User_Model::validate_password');
 		}
 
@@ -162,7 +167,7 @@ class User_Model extends Auth_User_Model {
 		if ( isset($post->password) AND
 			(! empty($post->password) OR (empty($post->password) AND ! empty($post->password_again))))
 		{
-			$post->add_rules('password','required','length['.Kohana::config('auth.password_length').']', 'matches[password_again]');
+			$post->add_rules('password','required', 'alpha_dash','length['.$password_length.']', 'matches[password_again]');
 			$post->add_callbacks('password' ,'User_Model::validate_password');
 		}
 
@@ -283,12 +288,14 @@ class User_Model extends Auth_User_Model {
 	 */
 	public function delete()
 	{
+		$table_prefix = Kohana::config('database.default.table_prefix');
+		
 		// Remove assigned roles
 		// Have to use db->query() since we don't have an ORM model for roles_users
-		$this->db->query('DELETE FROM roles_users WHERE user_id = ?',$this->id);
+		$this->db->query('DELETE FROM `'.$table_prefix.'roles_users` WHERE user_id = ?',$this->id);
 		
 		// Remove assigned badges
-		$this->db->query('DELETE FROM badge_users WHERE user_id = ?',$this->id);
+		$this->db->query('DELETE FROM `'.$table_prefix.'badge_users` WHERE user_id = ?',$this->id);
 
 		// Delete alerts
 		ORM::factory('alert')
@@ -319,8 +326,12 @@ class User_Model extends Auth_User_Model {
 	 **/
 	public function has_permission($permission)
 	{
+		// Cache superadmin role to avoid repeating query
+		static $superadmin;
+		if (!isset($superadmin)) $superadmin = ORM::factory('role','superadmin');
+		
 		// Special case - superadmin ALWAYS has all permissions
-		if ($this->has(ORM::factory('role','superadmin')))
+		if ($this->has($superadmin))
 		{
 			return TRUE;
 		}
@@ -353,6 +364,41 @@ class User_Model extends Auth_User_Model {
 		
 		// Send anyone else to login
 		return 'login';
+	}
+	
+	/**
+	 * Get a new forgotten password challenge token for this user
+	 * @param string $salt Optional salt for token generation (use this)
+	 * @return string
+	 */
+	public function forgot_password_token()
+	{
+		return $this->_forgot_password_token();
+	}
+
+	/**
+	 * Check to see if forgotten password token is valid
+	 * @param string $token token to check
+	 * @return boolean is token valid
+	 **/
+	public function check_forgot_password_token($token)
+	{
+		$salt = substr($token, 0, 32);
+		return $this->_forgot_password_token($salt) == $token;
+	}
+
+	/**
+	 * Generate a forgotten password challenge token for this user
+	 * @param string $salt Optional salt for token generation (only use this for checking a token in URL)
+	 * @return string token
+	 */
+	private function _forgot_password_token($salt = FALSE)
+	{
+		// Hashed datq consists of email and the last_login field
+		// So as soon as the user logs in again, the reset link expires automatically.
+		$salt = $salt ? $salt : text::random('alnum', 32); // Limited charset to keep it URL friendly
+		$key = Kohana::config('settings.forgot_password_secret');
+		return $salt . hash_hmac('sha1', $this->last_login . $this->email, $salt . $key);
 	}
 
 } // End User_Model

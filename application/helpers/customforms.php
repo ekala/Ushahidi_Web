@@ -35,14 +35,9 @@ class customforms_Core {
 	{
 		$fields_array = array();
 
-		if($form_id != null AND $form_id != '')
-		{
-			// Validation
-			if (!Form_Model::is_valid_form($form_id))
-			{
-				return $fields_array;
-			}
-		}
+		// If we have a form id but its invalid, return empty
+		if( ! empty($form_id) AND ! Form_Model::is_valid_form($form_id))
+			return $fields_array;
 
 		// Database table prefix
 		$table_prefix = Kohana::config('database.default.table_prefix');
@@ -50,37 +45,57 @@ class customforms_Core {
 		// Get field we'll check permissions against
 		$ispublic_field = ($action == "view") ? 'field_ispublic_visible' : 'field_ispublic_submit';
 
-		// Query to fetch the form fields associated with the given form id
-		$sql = "SELECT ff.*, '' AS form_response FROM ".$table_prefix."form_field ff LEFT JOIN ".$table_prefix."roles r ON (r.id = $ispublic_field) WHERE 1=1 ";
-		
-		if ($form_id != null AND $form_id != '')
-		{
-			$sql .= "AND ff.form_id = ".$form_id." ";
-		}
-		
 		// NOTE will probably need to add a user_level variable for non-web based requests
 		$user_level = self::get_user_max_auth();
+		
+		// Check if incident is valid
+		// Have to do this early since we can't build 2 ORM queries at once.
+		$valid_incident = Incident_Model::is_valid_incident($incident_id, FALSE);
 
-		// Check access_level
-		$sql .= 'AND (r.access_level <= '.$user_level.' OR r.access_level IS NULL)';
-		$sql .= " ORDER BY ff.field_position ASC";
+		// Check if the provided incident exists, then fill in the data
+		if ($valid_incident)
+		{
+			$sql = "SELECT ff.*, fr.form_response
+			FROM `{$table_prefix}form_field` ff
+			LEFT JOIN `{$table_prefix}roles` r ON (r.id = {$ispublic_field})
+			LEFT JOIN
+				`{$table_prefix}form_response` fr ON (
+					fr.form_field_id = ff.id AND
+					fr.incident_id = :incident_id
+				)
+			WHERE (access_level <= :user_level OR access_level IS NULL) "
+			. ( ! empty($form_id) ? "AND form_id = :form_id " : '')
+			. "ORDER BY field_position ASC";
+		}
+		else
+		{
+			$sql = "SELECT ff.*
+			FROM `{$table_prefix}form_field` ff
+			LEFT JOIN `{$table_prefix}roles` r ON (r.id = {$ispublic_field})
+			WHERE (access_level <= :user_level OR access_level IS NULL) "
+			. ( ! empty($form_id) ? "AND form_id = :form_id " : '')
+			. "ORDER BY field_position ASC";
+		}
 
-		// Execute the SQL to fetch the custom form fields
-		$form_fields = Database::instance()->query($sql);
+		$form_fields = Database::instance()->query($sql, array(
+			':form_id' => $form_id,
+			':user_level' => $user_level,
+			':incident_id' => $incident_id
+		));
 
 		foreach ($form_fields as $custom_formfield)
 		{
 			if ($data_only)
 			{
 				// Return Data Only
-				$fields_array[$custom_formfield->id] = $custom_formfield->form_response;
+				$fields_array[$custom_formfield->id] = isset($custom_formfield->form_response) ? $custom_formfield->form_response : '';
 			}
 			else
 			{
-
 				// Return Field Structure
 				$fields_array[$custom_formfield->id] = array(
 					'field_id' => $custom_formfield->id,
+					'form_id' => $custom_formfield->form_id,
 					'field_name' => $custom_formfield->field_name,
 					'field_type' => $custom_formfield->field_type,
 					'field_default' => $custom_formfield->field_default,
@@ -91,60 +106,8 @@ class customforms_Core {
 					'field_isdate' => $custom_formfield->field_isdate,
 					'field_ispublic_visible' => $custom_formfield->field_ispublic_visible,
 					'field_ispublic_submit' => $custom_formfield->field_ispublic_submit,
-					'field_response' => $custom_formfield->form_response
-					);
-			}
-		}
-
-		// Garbage collection
-		unset ($form_fields);
-
-		// Check if the provided incident exists, then fill in the data
-		if (Incident_Model::is_valid_incident($incident_id, FALSE))
-		{
-			// Overwrite the previous query
-			$sql = "SELECT ff.*, fr.form_response "
-				. "FROM ".$table_prefix."form_field ff "
-				. "RIGHT JOIN ".$table_prefix."form_response fr ON (fr.form_field_id = ff.id) "
-				. "LEFT JOIN ".$table_prefix."roles r ON (r.id = $ispublic_field)"
-				. "WHERE fr.incident_id = ".$incident_id." ";
-
-			if ($form_id != null AND $form_id != '')
-			{
-				$sql .= "AND ff.form_id = ".$form_id." ";
-			}
-
-			$sql .= 'AND (r.access_level <= '.$user_level.' OR r.access_level IS NULL)';
-			$sql .= " ORDER BY ff.field_position ASC";
-
-			// Execute the SQL to fetch the custom form fields
-			$form_fields = Database::instance()->query($sql);
-
-			foreach ($form_fields as $custom_formfield)
-			{
-				if ($data_only)
-				{
-					// Return Data Only
-					$fields_array[$custom_formfield->id] = $custom_formfield->form_response;
-				}
-				else
-				{
-					// Return Field Structure
-					$fields_array[$custom_formfield->id] = array(
-						'field_id' => $custom_formfield->id,
-						'field_name' => $custom_formfield->field_name,
-						'field_type' => $custom_formfield->field_type,
-						'field_default' => $custom_formfield->field_default,
-						'field_required' => $custom_formfield->field_required,
-						'field_maxlength' => $custom_formfield->field_maxlength,
-						'field_height' => $custom_formfield->field_height,
-						'field_width' => $custom_formfield->field_width,
-						'field_isdate' => $custom_formfield->field_isdate,
-						'field_ispublic_visible' => $custom_formfield->field_ispublic_visible,
-						'field_ispublic_submit' => $custom_formfield->field_ispublic_submit,
-						'field_response' => $custom_formfield->form_response
-						);
-				}
+					'field_response' => isset($custom_formfield->form_response) ? $custom_formfield->form_response : '',
+				);
 			}
 		}
 
@@ -153,25 +116,6 @@ class customforms_Core {
 
 		// Return
 		return $fields_array;
-	}
-
-	/**
-	 * Returns a list of the field names and values for a given userlevel
-	 *
-	 * @param int $id incident id
-	 * @param int $user_level the user's role level
-	 * @return Result
-	 */
-	public static function view_everything($id, $user_level)
-	{
-		$db = new Database();
-		$db->select('form_response.form_response', 'form_field.field_name');
-		$db->from('form_response');
-		$db->join('form_field','form_response.form_field_id','form_field.id');
-		$db->where(array('form_response.incident_id'=>$id,'form_field.field_ispublic_visible <='=>$user_level));
-		$db->orderby('form_field.field_position');
-
-		return $db->get();
 	}
 
 	/**
@@ -193,6 +137,13 @@ class customforms_Core {
 			{
 				array_push($r,$role->access_level);
 			}
+
+			if (count($r) == 0)
+			{
+				// There are no roles so clearly they have no authorization
+				return 0;
+			}
+
 			return max($r);
 		}
 		return 0;
@@ -200,14 +151,13 @@ class customforms_Core {
 
 	/**
 	 * Validate Custom Form Fields
-	 * @param array $custom_fields Array
+	 * @param Validation $post Validation object from form post
 	 * XXX This whole function is being done backwards
 	 * Need to pull the list of custom form fields first
 	 * Then look through them to see if they're set, not the other way around.
 	 */
 	public static function validate_custom_form_fields(&$post)
 	{
-		$errors = array();
 		$custom_fields = array();
 
 		if (!isset($post->custom_field))
@@ -265,23 +215,25 @@ class customforms_Core {
 			if ( ! $field_param->loaded)
 			{
 				// Populate the error field
-				$errors[$custom_name] = "The $custom_name field does not exist";
-				return $errors;
+				//$errors[$field_id] = "The $custom_name field does not exist";
+				$post->add_error('custom_field', 'not_exist', array($field_id));
+				return;
 			}
 
 			$max_auth = self::get_user_max_auth();
-			if ($field_param->field_ispublic_submit > $max_auth)
+			$required_role = ORM::factory('role', $field_param->field_ispublic_submit);
+			if (($required_role->loaded ? $required_role->access_level : 0) > $max_auth)
 			{
 				// Populate the error field
-				$errors[$custom_name] = "The $custom_name field cannot be edited by your account";
-				return $errors;
+				$post->add_error('custom_field', 'permission', array($custom_name));
+				return;
 			}
 
 			// Validate that the field is required
 			if ( $field_param->field_required == 1 AND $field_response == "")
 			{
-				$errors[$custom_name] = "The $custom_name field is required";
-				return $errors;
+				$post->add_error('custom_field', 'required', array($custom_name));
+				return;
 			}
 
 			// Grab the custom field options for this field
@@ -290,24 +242,21 @@ class customforms_Core {
 			// Validate Custom fields for text boxes
 			if ($field_param->field_type == 1 AND isset($field_options) AND $field_response != '')
 			{
-				foreach ($field_options as $option => $value)
+				if (isset($field_options['field_datatype']))
 				{
-					if ($option == 'field_datatype')
+					if ($field_options['field_datatype'] == 'email' AND !valid::email($field_response))
 					{
-						if ($value == 'email' AND !valid::email($field_response))
-						{
-							$errors[$custom_name] = "The $custom_name field requires a valid email address";
-						}
+						$post->add_error('custom_field', 'email', array($custom_name));
+					}
 
-						if ($value == 'phonenumber' AND !valid::phone($field_response))
-						{
-							$errors[$custom_name] = "The $custom_name field requires a valid email address";
-						}
+					if ($field_options['field_datatype'] == 'phonenumber' AND !valid::phone($field_response))
+					{
+						$post->add_error('custom_field', 'phone', array($custom_name));
+					}
 
-						if ($value == 'numeric' AND !valid::numeric($field_response))
-						{
-							$errors[$custom_name] = "The $custom_name field must be numeric";
-						}
+					if ($field_options['field_datatype'] == 'numeric' AND !valid::numeric($field_response))
+					{
+						$post->add_error('custom_field', 'numeric', array($custom_name));
 					}
 				}
 			}
@@ -318,7 +267,7 @@ class customforms_Core {
 				$field_default = $field_param->field_default;
 				if ( ! valid::date_mmddyyyy($field_response))
 				{
-					$errors[$custom_name] = "The $custom_name field is not a valid date (MM/DD/YYYY)";
+					$post->add_error('custom_field', 'date_mmddyyyy', array($custom_name));
 				}
 			}
 
@@ -339,7 +288,7 @@ class customforms_Core {
 				}
 				else
 				{
-					$options = explode(',',$defaults[0]);
+					$options = array_map('trim',explode(',',$defaults[0]));
 				}
 
 				$responses = explode(',',$field_response);
@@ -347,7 +296,8 @@ class customforms_Core {
 				{
 					if ( ! in_array($response, $options) AND $response != '')
 					{
-						$errors[$custom_name] = "The $custom_name field does not include $response as an option";
+						$post->add_error('custom_field', 'values', array($custom_name));
+						//$errors[$field_id] = "The $custom_name field does not include $response as an option";
 					}
 				}
 			}
@@ -355,11 +305,11 @@ class customforms_Core {
 			// Validate that a required checkbox is checked
 			if ($field_param->field_type == 6 AND $field_response == 'BLANKHACK' AND $field_param->field_required == 1)
 			{
-				$errors[$custom_name] = "The $custom_name field is required";
+				$post->add_error('custom_field', 'required', array($custom_name));
 			}
 		}
 
-		return $errors;
+		return;
 	}
 
 	/**
@@ -418,11 +368,28 @@ class customforms_Core {
 	 */
 	public static function get_edit_mismatch($form_id = 0)
 	{
+		$table_prefix = Kohana::config('database.default.table_prefix');
+
 		$user_level = self::get_user_max_auth();
-		$public_state = array('field_ispublic_submit >'=>$user_level, 'field_ispublic_visible <='=>$user_level);
-		$custom_form = ORM::factory('form', $form_id)->where($public_state)->orderby('field_position','asc');
+		
+		$db = Database::instance();
+		$custom_formfields = $db->query(
+			"SELECT `form_field`.`id`
+			FROM `{$table_prefix}form_field` AS `form_field`
+			LEFT JOIN `{$table_prefix}roles` AS `roles_submit` ON (`form_field`.`field_ispublic_submit` = `roles_submit`.`id`)
+			LEFT JOIN `{$table_prefix}roles` AS `roles_view` ON (`form_field`.`field_ispublic_visible` = `roles_view`.`id`)
+			WHERE `form_id` = :form_id 
+			AND `roles_submit`.`access_level` > :user_level 
+			AND (`roles_view`.`access_level` <= :user_level OR `roles_view`.`access_level` IS NULL )
+			ORDER BY `field_position` ASC",
+			array(
+				':user_level' => $user_level,
+				':form_id' => $form_id
+			)
+		);
+		
 		$mismatches = array();
-		foreach ($custom_form->form_field as $custom_formfield)
+		foreach ($custom_formfields as $custom_formfield)
 		{
 			$mismatches[$custom_formfield->id] = 1;
 		}

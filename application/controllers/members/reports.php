@@ -111,41 +111,6 @@ class Reports_Controller extends Members_Controller {
 							$incident_id = $update->id;
 							$location_id = $update->location_id;
 							$update->delete();
-
-							// Delete Location
-							ORM::factory('location')->where('id',$location_id)->delete_all();
-
-							// Delete Categories
-							ORM::factory('incident_category')->where('incident_id',$incident_id)->delete_all();
-
-							// Delete Translations
-							ORM::factory('incident_lang')->where('incident_id',$incident_id)->delete_all();
-
-							// Delete Photos From Directory
-							foreach (ORM::factory('media')->where('incident_id',$incident_id)->where('media_type', 1) as $photo) 
-							{
-								deletePhoto($photo->id);
-							}
-
-							// Delete Media
-							ORM::factory('media')->where('incident_id',$incident_id)->delete_all();
-
-							// Delete Sender
-							ORM::factory('incident_person')->where('incident_id',$incident_id)->delete_all();
-
-							// Delete relationship to SMS message
-							$updatemessage = ORM::factory('message')->where('incident_id',$incident_id)->find();
-							if ($updatemessage->loaded)
-							{
-								$updatemessage->incident_id = 0;
-								$updatemessage->save();
-							}
-
-							// Delete Comments
-							ORM::factory('comment')->where('incident_id',$incident_id)->delete_all();
-
-							// Action::report_delete - Deleted a Report
-							Event::run('ushahidi_action.report_delete', $update);
 						}
 					}
 					$form_action = utf8::strtoupper(Kohana::lang('ui_admin.deleted'));
@@ -230,7 +195,7 @@ class Reports_Controller extends Members_Controller {
 		$this->template->content->status = $status;
 
 		// Javascript Header
-		$this->template->js = new View('admin/reports/reports_js');
+		$this->themes->js = new View('admin/reports/reports_js');
 	}
 
 
@@ -298,9 +263,6 @@ class Reports_Controller extends Members_Controller {
 
 		// Locale (Language) Array
 		$this->template->content->locale_array = Kohana::config('locale.all_languages');
-
-		// Create Categories
-		$this->template->content->categories =Category_Model::get_categories();
 
 		// Time formatting
 		$this->template->content->hour_array = $this->_hour_array();
@@ -389,7 +351,7 @@ class Reports_Controller extends Members_Controller {
 				reports::save_location($post, $location);
 
 				// STEP 2: SAVE INCIDENT
-				$incident = new Incident_Model();
+				$incident = new Incident_Model($id);
 				reports::save_report($post, $incident, $location->id);
 
 				// STEP 2b: SAVE INCIDENT GEOMETRIES
@@ -426,10 +388,8 @@ class Reports_Controller extends Members_Controller {
 				}
 
 				// Action::report_add / report_submit_members - Added a New Report
-				// ++ Do we need two events for this? Or will one suffice?
-				// Event::run('ushahidi_action.report_add', $incident);
 				Event::run('ushahidi_action.report_submit_members', $post);
-
+				Event::run('ushahidi_action.report_edit', $incident);
 
 				// SAVE AND CLOSE?
 				if ($post->save == 1)
@@ -557,8 +517,17 @@ class Reports_Controller extends Members_Controller {
 		$this->template->content->form_saved = $form_saved;
 
 		// Retrieve Custom Form Fields Structure
-		$disp_custom_fields = customforms::get_custom_form_fields($id, $form_id, FALSE);
-		$this->template->content->disp_custom_fields = $disp_custom_fields;
+		$this->template->content->custom_forms = new View('reports/submit_custom_forms');
+		$disp_custom_fields = customforms::get_custom_form_fields($id, $form['form_id'], FALSE, "view");
+		$custom_field_mismatch = customforms::get_edit_mismatch($form['form_id']);
+		// Quick hack to make sure view-only fields have data set
+		foreach ($custom_field_mismatch as $id => $field)
+		{
+			$form['custom_field'][$id] = $disp_custom_fields[$id]['field_response'];
+		}
+		$this->template->content->custom_forms->disp_custom_fields = $disp_custom_fields;
+		$this->template->content->custom_forms->custom_field_mismatch = $custom_field_mismatch;
+		$this->template->content->custom_forms->form = $form;
 
 		// Retrieve Previous & Next Records
 		$previous = ORM::factory('incident')->where('id < ', $id)->orderby('id','desc')->find();
@@ -574,53 +543,37 @@ class Reports_Controller extends Members_Controller {
 		$this->template->content->next_url = $next_url;
 
 		// Javascript Header
-		$this->template->map_enabled = TRUE;
-		$this->template->colorpicker_enabled = TRUE;
-		$this->template->treeview_enabled = TRUE;
-		$this->template->json2_enabled = TRUE;
+		$this->themes->map_enabled = TRUE;
+		$this->themes->colorpicker_enabled = TRUE;
+		$this->themes->treeview_enabled = TRUE;
+		$this->themes->json2_enabled = TRUE;
 		
-		$this->template->js = new View('reports/submit_edit_js');
-		$this->template->js->edit_mode = FALSE;
-		$this->template->js->default_map = Kohana::config('settings.default_map');
-		$this->template->js->default_zoom = Kohana::config('settings.default_zoom');
+		$this->themes->js = new View('reports/submit_edit_js');
+		$this->themes->js->edit_mode = FALSE;
+		$this->themes->js->default_map = Kohana::config('settings.default_map');
+		$this->themes->js->default_zoom = Kohana::config('settings.default_zoom');
 
 		if ( ! $form['latitude'] OR ! $form['latitude'])
 		{
-			$this->template->js->latitude = Kohana::config('settings.default_lat');
-			$this->template->js->longitude = Kohana::config('settings.default_lon');
+			$this->themes->js->latitude = Kohana::config('settings.default_lat');
+			$this->themes->js->longitude = Kohana::config('settings.default_lon');
 		}
 		else
 		{
-			$this->template->js->latitude = $form['latitude'];
-			$this->template->js->longitude = $form['longitude'];
+			$this->themes->js->latitude = $form['latitude'];
+			$this->themes->js->longitude = $form['longitude'];
 		}
 		
-		$this->template->js->incident_zoom = $form['incident_zoom'];
-		$this->template->js->geometries = $form['geometry'];
+		$this->themes->js->incident_zoom = $form['incident_zoom'];
+		$this->themes->js->geometries = $form['geometry'];
 
 		// Inline Javascript
 		$this->template->content->date_picker_js = $this->_date_picker_js();
 		$this->template->content->color_picker_js = $this->_color_picker_js();
 		
 		// Pack Javascript
-		$myPacker = new javascriptpacker($this->template->js , 'Normal', FALSE, FALSE);
-		$this->template->js = $myPacker->pack();
-	}
-	
-
-	/**
-	* Delete Photo
-	* @param int $id The unique id of the photo to be deleted
-	*/
-	public function deletePhoto ($id)
-	{
-		$this->auto_render = FALSE;
-		$this->template = "";
-
-		if ($id)
-		{
-			Media_Model::delete_photo($id);
-		}
+		$myPacker = new javascriptpacker($this->themes->js , 'Normal', FALSE, FALSE);
+		$this->themes->js = $myPacker->pack();
 	}
 
 	/* private functions */
@@ -841,11 +794,5 @@ class Reports_Controller extends Members_Controller {
 		{
 			return "1=1";
 		}
-	}
-
-	private function _csv_text($text)
-	{
-		$text = stripslashes(htmlspecialchars($text));
-		return $text;
 	}
 }

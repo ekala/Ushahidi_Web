@@ -80,7 +80,7 @@ echo html::script(url::file_loc('js').'media/js/global', TRUE);
 
 		<?php if ($new_confirm_email_form): ?>
 			<h2><?php echo Kohana::lang('ui_main.resend_confirm_email'); ?>:</h2>
-			<div id="resend_confirm_email" class="signin_select ui-corner-all" style="margin-top:10px;">
+			<div id="resend_confirm_email" class="signin_select ui-corner-all">
 				<?php echo form::open(NULL, array('id'=>"resendconfirm_form")); ?>
 					<input type="hidden" name="action" value="resend_confirmation">
 					<table width="100%" border="0" cellspacing="3" cellpadding="4" background="" id="ushahidi_loginbox">
@@ -118,18 +118,15 @@ echo html::script(url::file_loc('js').'media/js/global', TRUE);
 						<td><input type="submit" id="submit" name="submit" value="<?php echo Kohana::lang('ui_main.login'); ?>" class="login_btn" /></td>
 					</tr>
 					
-					<?php if (Kohana::config('settings.require_email_confirmation')): ?>
 					<tr>
 						<td><a href="javascript:toggle('signin_forgot');"> <?php echo Kohana::lang('ui_main.forgot_password');?></a></td>
 					</tr>
-					<?php endif; ?>
 
 				</table>
 			<?php echo form::close(); ?>
 		</div>
 		
-		<?php if (Kohana::config('settings.require_email_confirmation')): ?>
-		<div id="signin_forgot" class="signin_select ui-corner-all" style="margin-top:10px;">
+		<div id="signin_forgot" class="signin_select ui-corner-all">
 			<?php echo form::open(NULL, array('id'=>"userforgot_form")); ?>
 				<input type="hidden" name="action" value="forgot">
 				<table width="100%" border="0" cellspacing="3" cellpadding="4" background="" id="ushahidi_loginbox">
@@ -143,7 +140,6 @@ echo html::script(url::file_loc('js').'media/js/global', TRUE);
 				</table>
 			<?php echo form::close() ?>
 		</div>
-		<?php endif; ?>
 
 		<?php if (kohana::config('config.allow_openid') == TRUE): ?>
 		<h2><a href="javascript:toggle('signin_openid');"><?php echo Kohana::lang('ui_main.login_openid'); ?></a></h2>
@@ -173,7 +169,7 @@ echo html::script(url::file_loc('js').'media/js/global', TRUE);
 		<h2><a href="javascript:toggle('signin_new');"><?php echo Kohana::lang('ui_main.login_signup_click'); ?></a></h2>
 
 		<?php echo Kohana::lang('ui_main.login_signup_text'); ?>
-		<div id="signin_new" class="signin_select ui-corner-all" style="margin-top:10px;">
+		<div id="signin_new" class="signin_select ui-corner-all">
 			<?php echo form::open(NULL,  array('id' => "usernew_form")); ?>
 				<input type="hidden" name="action" value="new">
 				<table width="100%" border="0" cellspacing="3" cellpadding="4" background="" id="ushahidi_loginbox">
@@ -196,6 +192,10 @@ echo html::script(url::file_loc('js').'media/js/global', TRUE);
 						<td><strong><?php echo Kohana::lang('ui_main.password_again'); ?>:</strong><br />
 						<?php print form::password('password_again', $form['password_again'], 'class="login_text new_password_again"'); ?></td>
 					</tr>
+					<?php 
+						//for plugins that want to add some extra stuff to this lovely view
+						Event::run('ushahidi_action.login_new_user_form');
+					?>
 					<tr>
 						<td><input type="submit" id="submit" name="submit" value="<?php echo Kohana::lang('ui_main.login_signup');?>" class="login_btn new_submit" /></td>
 					</tr>
@@ -206,7 +206,7 @@ echo html::script(url::file_loc('js').'media/js/global', TRUE);
 	</div>
 
 	<?php if (kohana::config('riverid.enable') == TRUE): ?>
-	<div style="text-align:center;margin-top:20px;" id="openid_login" class="ui-corner-all">
+	<div id="openid_login" class="ui-corner-all">
 		<small><?php echo $riverid_information; ?> 
 			<a href="<?php echo $riverid_url; ?>"><?php echo Kohana::lang('ui_main.more_information'); ?></a>
 		</small>

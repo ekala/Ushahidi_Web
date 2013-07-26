@@ -1,5 +1,5 @@
 -- Ushahidi Engine
--- version 92
+-- version 106
 -- http://www.ushahidi.com
 
 
@@ -189,7 +189,8 @@ CREATE TABLE IF NOT EXISTS `category` (
   `category_visible` tinyint(4) NOT NULL DEFAULT '1',
   `category_trusted` tinyint(4) NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`),
-  KEY `category_visible` (`category_visible`)
+  KEY `category_visible` (`category_visible`),
+  KEY `parent_id` (`parent_id`)
 ) ENGINE=MyISAM  DEFAULT CHARSET=utf8 COMMENT='Holds information about categories defined for a deployment' AUTO_INCREMENT=6 ;
 
 --
@@ -200,8 +201,7 @@ INSERT INTO `category` (`id`,`category_title`, `category_description`, `category
 (1, 'Category 1', 'Category 1', '9900CC', 1, 0, 0),
 (2, 'Category 2', 'Category 2', '3300FF', 1, 0, 1),
 (3, 'Category 3', 'Category 3', '663300', 1, 0, 2),
-(4, 'Trusted Reports', 'Reports from trusted reporters', '339900', 1, 1, 3),
-(5, 'NONE', 'Holds uncategorized reports', '009887', 1, 1, 4);
+(4, 'Trusted Reports', 'Reports from trusted reporters', '339900', 1, 1, 3);
 
 -- --------------------------------------------------------
 
@@ -655,7 +655,8 @@ CREATE TABLE IF NOT EXISTS `form` (
   `form_title` varchar(200) NOT NULL,
   `form_description` text,
   `form_active` tinyint(4) DEFAULT '1',
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `form_title` (`form_title`)
 ) ENGINE=MyISAM  DEFAULT CHARSET=utf8 COMMENT='Stores all report submission forms created(default+custom)' AUTO_INCREMENT=2 ;
 
 --
@@ -674,13 +675,12 @@ INSERT INTO `form` (`id`, `form_title`, `form_description`, `form_active`) VALUE
 
 CREATE TABLE IF NOT EXISTS `form_field` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
-  `form_id` int(11) NOT NULL DEFAULT '0',
+  `form_id` int(11) NOT NULL DEFAULT '1',
   `field_name` varchar(200) DEFAULT NULL,
   `field_type` tinyint(4) NOT NULL DEFAULT '1' COMMENT '1 - TEXTFIELD, 2 - TEXTAREA (FREETEXT), 3 - DATE, 4 - PASSWORD, 5 - RADIO, 6 - CHECKBOX',
   `field_required` tinyint(4) DEFAULT '0',
-  `field_options` text,
   `field_position` tinyint(4) NOT NULL DEFAULT '0',
-  `field_default` varchar(200) DEFAULT NULL,
+  `field_default` TEXT,
   `field_maxlength` int(11) NOT NULL DEFAULT '0',
   `field_width` smallint(6) NOT NULL DEFAULT '0',
   `field_height` tinyint(4) DEFAULT '5',
@@ -688,6 +688,7 @@ CREATE TABLE IF NOT EXISTS `form_field` (
   `field_ispublic_visible` tinyint(4) NOT NULL DEFAULT '0',
   `field_ispublic_submit` tinyint(4) NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`),
+  UNIQUE KEY `field_name` (  `field_name` ,  `form_id` ),
   KEY `fk_form_id` (`form_id`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COMMENT='Stores all custom form fields created by users' AUTO_INCREMENT=1 ;
 
@@ -788,7 +789,9 @@ CREATE TABLE IF NOT EXISTS `incident` (
   KEY `incident_active` (`incident_active`),
   KEY `incident_date` (`incident_date`),
   KEY `form_id` (`form_id`),
-  KEY `user_id` (`user_id`)
+  KEY `user_id` (`user_id`),
+  KEY `incident_mode` (`incident_mode`),
+  KEY `incident_verified` (`incident_verified`)
 ) ENGINE=MyISAM  DEFAULT CHARSET=utf8 COMMENT='Stores reports submitted' AUTO_INCREMENT=2 ;
 
 --
@@ -811,9 +814,11 @@ UNLOCK TABLES;
 CREATE TABLE IF NOT EXISTS `incident_category` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `incident_id` bigint(20) unsigned NOT NULL DEFAULT '0',
-  `category_id` int(11) unsigned NOT NULL DEFAULT '5',
+  `category_id` int(11) unsigned NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `incident_category_ids` (`incident_id`,`category_id`)
+  UNIQUE KEY `incident_category_ids` (`incident_id`,`category_id`),
+  KEY `incident_id` (`incident_id`),
+  KEY `category_id` (`category_id`)
 ) ENGINE=MyISAM  DEFAULT CHARSET=utf8 COMMENT='Stores submitted reports categories' AUTO_INCREMENT=2 ;
 
 --
@@ -922,7 +927,9 @@ CREATE TABLE IF NOT EXISTS `location` (
   `location_visible` tinyint(4) NOT NULL DEFAULT '1',
   `location_date` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
-  KEY `country_id` (`country_id`)
+  KEY `country_id` (`country_id`),
+  KEY `latitude` (`latitude`),
+  KEY `longitude` (`longitude`)
 ) ENGINE=MyISAM  DEFAULT CHARSET=utf8 COMMENT='Stores location information' AUTO_INCREMENT=2 ;
 
 --
@@ -1491,5 +1498,5 @@ CREATE TABLE IF NOT EXISTS `verified` (
  * Version information for table `settings`
  *
  */
-UPDATE `settings` SET `value` = '97' WHERE `key` = 'db_version';
-UPDATE `settings` SET `value` = '2.5' WHERE `key`= 'ushahidi_version';
+UPDATE `settings` SET `value` = '107' WHERE `key` = 'db_version';
+UPDATE `settings` SET `value` = '2.7' WHERE `key`= 'ushahidi_version';

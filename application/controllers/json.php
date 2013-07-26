@@ -44,6 +44,12 @@ class Json_Controller extends Template_Controller {
 	public function __construct()
 	{
 		parent::__construct();
+		
+		// Disable profiler
+		if (isset($this->profiler))
+		{
+			$this->profiler->disable();
+		}
 
 		// Set Table Prefix
 		$this->table_prefix = Kohana::config('database.default.table_prefix');
@@ -58,86 +64,191 @@ class Json_Controller extends Template_Controller {
 	 */
 	public function index()
 	{
-		$json = '';
-		$json_item = array();
-		$json_item_first = array();
-		$json_features = array();
+		$this->geojson('markers');
+	}
+
+	/**
+	 * Generate JSON in CLUSTER mode
+	 */
+	public function cluster()
+	{
+		$this->geojson('clusters');
+	}
+	
+	/**
+	 * Generate geojson
+	 * 
+	 * @param string $type type of geojson to generate. Valid options are: 'clusters' and 'markers'
+	 **/
+	protected function geojson($type)
+	{
 		$color = Kohana::config('settings.default_map_all');
 		$icon = "";
+		$markers = FALSE;
 		
 		if (Kohana::config('settings.default_map_all_icon_id'))
 		{
 			$icon_object = ORM::factory('media')->find(Kohana::config('settings.default_map_all_icon_id'));
 			$icon = url::convert_uploaded_to_abs($icon_object->media_medium);
 		}
-
-		$media_type = (isset($_GET['m']) AND intval($_GET['m']) > 0)? intval($_GET['m']) : 0;
 		
-		// Get the incident and category id
-		$category_id = (isset($_GET['c']) AND intval($_GET['c']) > 0)? intval($_GET['c']) : 0;
-		$incident_id = (isset($_GET['i']) AND intval($_GET['i']) > 0)? intval($_GET['i']) : 0;
-		
+		// Category ID
+		$category_id = (isset($_GET['c']) AND intval($_GET['c']) > 0) ? intval($_GET['c']) : 0;
 		// Get the category colour
 		if (Category_Model::is_valid_category($category_id))
 		{
 			// Get the color & icon
 			$cat = ORM::factory('category', $category_id);
 			$color = $cat->category_color;
+			$icon = "";
 			if ($cat->category_image)
 			{
 				$icon = url::convert_uploaded_to_abs($cat->category_image);
 			}
 		}
 		
+		$params = array('color' => $color, 'icon' => $icon);
+		Event::run('ushahidi_filter.json_alter_params', $params);
+		$color = $params['color'];
+		$icon = $params['icon'];
+
+		// Run event ushahidi_filter.json_replace_markers
+		// This allows a plugin to completely replace $markers
+		// If markers are added at this point we don't bother fetching incidents at all
+		Event::run('ushahidi_filter.json_replace_markers', $markers);
+
 		// Fetch the incidents
-		$markers = (isset($_GET['page']) AND intval($_GET['page']) > 0)
-		    ? reports::fetch_incidents(TRUE)
-		    : reports::fetch_incidents();
-		
-		foreach ($markers as $marker)
+		if (! $markers)
 		{
-			$thumb = "";
-			if ($media_type == 1)
+			$markers = (isset($_GET['page']) AND intval($_GET['page']) > 0)
+			    ? reports::fetch_incidents(TRUE)
+			    : reports::fetch_incidents();
+		}
+		
+		// Run event ushahidi_filter.json_alter_markers
+		// This allows a plugin to alter $markers
+		// Plugins can add or remove markers as needed
+		Event::run('ushahidi_filter.json_alter_markers', $markers);
+		
+		// Get geojson features array
+		$function = "{$type}_geojson";
+		$json_features = $this->$function($markers, $category_id, $color, $icon);
+		
+		$this->render_geojson($json_features);
+	}
+
+	/**
+	 * Render geojson features array to geojson and output
+	 * 
+	 * @param array $json_features geojson features array
+	 **/
+	protected function render_geojson($json_features)
+	{
+		// Run event ushahidi_filter.json_features
+		// Allow plugins to alter json array before its rendered
+		Event::run('ushahidi_filter.json_features', $json_features);
+		
+		$json = json_encode(array(
+			"type" => "FeatureCollection",
+			"features" => $json_features
+		));
+		
+		header('Content-type: application/json; charset=utf-8');
+		echo $json;
+	}
+
+	/**
+	 * Generate GEOJSON from incidents
+	 * 
+	 * @param ORM_Iterator|Database_Result|array $incidents collection of incidents
+	 * @param int $category_id
+	 * @param string $color
+	 * @param string $icon
+	 * @return array $json_features geojson features array
+	 **/
+	protected function markers_geojson($incidents, $category_id, $color, $icon, $include_geometries = TRUE)
+	{
+		$json_features = array();
+		
+		// Extra params for markers only
+		// Get the incidentid (to be added as first marker)
+		$first_incident_id = (isset($_GET['i']) AND intval($_GET['i']) > 0)? intval($_GET['i']) : 0;
+		
+		$media_type = (isset($_GET['m']) AND intval($_GET['m']) > 0)? intval($_GET['m']) : 0;
+		
+		foreach ($incidents as $marker)
+		{
+			// Handle both reports::fetch_incidents() response and actual ORM objects
+			$marker->id = isset($marker->incident_id) ? $marker->incident_id : $marker->id;
+			if (isset($marker->latitude) AND isset($marker->longitude))
 			{
-				$media = ORM::factory('incident', $marker->incident_id)->media;
-				if ($media->count())
+				$latitude = $marker->latitude;
+				$longitude = $marker->longitude;
+			}
+			elseif (isset($marker->location) AND isset($marker->location->latitude) AND isset($marker->location->longitude))
+			{
+				$latitude = $marker->location->latitude;
+				$longitude = $marker->location->longitude;
+			}
+			else
+			{
+				// No location - skip this report
+				continue;
+			}
+			
+			// Get thumbnail
+			$thumb = "";
+			$media = ORM::factory('incident', $marker->id)->media;
+			if ($media->count())
+			{
+				foreach ($media as $photo)
 				{
-					foreach ($media as $photo)
+					if ($photo->media_thumb)
 					{
-						if ($photo->media_thumb)
-						{ 
-							// Get the first thumb
-							$prefix = url::base().Kohana::config('upload.relative_directory');
-							$thumb = $prefix."/".$photo->media_thumb;
-							break;
-						}
+						// Get the first thumb
+						$thumb = url::convert_uploaded_to_abs($photo->media_thumb);
+						break;
 					}
 				}
 			}
 
-			$link = url::base()."reports/view/".$marker->incident_id;
+			// Get URL from object, fallback to Incident_Model::get() if object doesn't have url or url()
+			if (method_exists($marker, 'url'))
+			{
+				$link = $marker->url();
+			}
+			elseif (isset($marker->url))
+			{
+				$link = $marker->url;
+			}
+			else
+			{
+				$link = Incident_Model::get_url($marker);
+			}
 			$item_name = $this->get_title($marker->incident_title, $link);
 
 			$json_item = array();
 			$json_item['type'] = 'Feature';
 			$json_item['properties'] = array(
-				'id' => $marker->incident_id,
+				'id' => $marker->id,
 				'name' => $item_name,
 				'link' => $link,
 				'category' => array($category_id),
 				'color' => $color,
 				'icon' => $icon,
 				'thumb' => $thumb,
-				'timestamp' => strtotime($marker->incident_date)
+				'timestamp' => strtotime($marker->incident_date),
+				'count' => 1,
+				'class' => get_class($marker)
 			);
 			$json_item['geometry'] = array(
 				'type' => 'Point',
-				'coordinates' => array($marker->longitude, $marker->latitude)
+				'coordinates' => array($longitude, $latitude)
 			);
 
-			if ($marker->incident_id == $incident_id)
+			if ($marker->id == $first_incident_id)
 			{
-				$json_item_first = $json_item;
+				array_unshift($json_features, $json_item);
 			}
 			else
 			{
@@ -145,123 +256,120 @@ class Json_Controller extends Template_Controller {
 			}
 			
 			// Get Incident Geometries
-			$geometry = $this->_get_geometry($marker->incident_id, $marker->incident_title, $marker->incident_date);
-			if (count($geometry))
+			if ($include_geometries)
 			{
-				foreach ($geometry as $g)
+				$geometry = $this->get_geometry($marker->id, $marker->incident_title, $marker->incident_date, $link);
+				if (count($geometry))
 				{
-					array_push($json_features, $g);
+					foreach ($geometry as $g)
+					{
+						array_push($json_features, $g);
+					}
 				}
 			}
 		}
 		
-		if ($json_item_first)
-		{
-			// Push individual marker in last so that it is layered on top when pulled into map
-			array_push($json_features, $json_item_first);
-		}
-		
 		Event::run('ushahidi_filter.json_index_features', $json_features);
 		
-		$json = json_encode(array(
-			"type" => "FeatureCollection",
-			"features" => $json_features
-		));
-
-		header('Content-type: application/json; charset=utf-8');
-		echo $json;
+		return $json_features;
 	}
 
-
 	/**
-	 * Generate JSON in CLUSTER mode
-	 */
-	public function cluster()
+	 * Generate clustered GEOJSON from incidents
+	 * 
+	 * @param ORM_Iterator|Database_Result|array $incidents collection of incidents
+	 * @param int $category_id
+	 * @param string $color
+	 * @param string $icon
+	 * @return array $json_features geojson features array
+	 **/
+	protected function clusters_geojson($incidents, $category_id, $color, $icon)
 	{
-		// Database
-		$db = new Database();
-
-		$json = '';
-		$json_item = array();
 		$json_features = array();
-		$geometry_array = array();
-
-		$color = Kohana::config('settings.default_map_all');
-		$icon = "";
 		
-		if (Kohana::config('settings.default_map_all_icon_id'))
-		{
-			$icon_object = ORM::factory('media')->find(Kohana::config('settings.default_map_all_icon_id'));
-			$icon = url::convert_uploaded_to_abs($icon_object->media_medium);
-		}
-
-		// Get Zoom Level
-		$zoomLevel = (isset($_GET['z']) AND !empty($_GET['z'])) ?
-			(int) $_GET['z'] : 8;
-
-		//$distance = 60;
-		$distance = (10000000 >> $zoomLevel) / 100000;
-		
-		// Fetch the incidents using the specified parameters
-		$incidents = reports::fetch_incidents();
-		
-		// Category ID
-		$category_id = (isset($_GET['c']) AND intval($_GET['c']) > 0) ? intval($_GET['c']) : 0;
-		
+		// Extra params for clustering
 		// Start date
 		$start_date = (isset($_GET['s']) AND intval($_GET['s']) > 0) ? intval($_GET['s']) : NULL;
 		
 		// End date
 		$end_date = (isset($_GET['e']) AND intval($_GET['e']) > 0) ? intval($_GET['e']) : NULL;
 		
-		if (Category_Model::is_valid_category($category_id))
+		// Get Zoom Level
+		$zoomLevel = (isset($_GET['z']) AND !empty($_GET['z'])) ? (int) $_GET['z'] : 8;
+		$distance = (10000000 >> $zoomLevel) / 100000;
+		
+		// Get markers array
+		if ($incidents instanceof ORM_Iterator)
 		{
-			// Get the color & icon
-			$cat = ORM::factory('category', $category_id);
-			$color = $cat->category_color;
-			if ($cat->category_image)
-			{
-				$icon = url::convert_uploaded_to_abs($cat->category_image);
-			}
+			$markers = $incidents->as_array();
 		}
-
-		// Create markers by marrying the locations and incidents
-		$markers = array();
-		foreach ($incidents as $incident)
+		elseif ($incidents instanceof Database_Result)
 		{
-			$markers[] = array(
-				'id' => $incident->incident_id,
-				'incident_title' => $incident->incident_title,
-				'latitude' => $incident->latitude,
-				'longitude' => $incident->longitude,
-				'thumb' => ''
-				);
+			$markers = $incidents->result_array();
+		}
+		else
+		{
+			$markers = $incidents;
 		}
 
 		$clusters = array();	// Clustered
-		$singles = array();		// Non Clustered
+		$singles = array();	// Non Clustered
 
 		// Loop until all markers have been compared
 		while (count($markers))
 		{
 			$marker	 = array_pop($markers);
 			$cluster = array();
+			
+			// Handle both reports::fetch_incidents() response and actual ORM objects
+			$marker->id = isset($marker->incident_id) ? $marker->incident_id : $marker->id;
+			if (isset($marker->latitude) AND isset($marker->longitude))
+			{
+				$marker_latitude = $marker->latitude;
+				$marker_longitude = $marker->longitude;
+			}
+			elseif (isset($marker->location) AND isset($marker->location->latitude) AND isset($marker->location->longitude))
+			{
+				$marker_latitude = $marker->location->latitude;
+				$marker_longitude = $marker->location->longitude;
+			}
+			else
+			{
+				// No location - skip this report
+				continue;
+			}
 
 			// Compare marker against all remaining markers.
 			foreach ($markers as $key => $target)
 			{
+				// Handle both reports::fetch_incidents() response and actual ORM objects
+				if (isset($target->latitude) AND isset($target->longitude))
+				{
+					$target_latitude = $target->latitude;
+					$target_longitude = $target->longitude;
+				}
+				elseif (isset($target->location) AND isset($target->location->latitude) AND isset($target->location->longitude))
+				{
+					$target_latitude = $target->location->latitude;
+					$target_longitude = $target->location->longitude;
+				}
+				else
+				{
+					// No location - skip this report
+					continue;
+				}
+				
 				// This function returns the distance between two markers, at a defined zoom level.
 				// $pixels = $this->_pixelDistance($marker['latitude'], $marker['longitude'],
 				// $target['latitude'], $target['longitude'], $zoomLevel);
 
-				$pixels = abs($marker['longitude']-$target['longitude']) +
-					abs($marker['latitude']-$target['latitude']);
+				$pixels = abs($marker_longitude - $target_longitude) +
+					abs($marker_latitude - $target_latitude);
 					
 				// If two markers are closer than defined distance, remove compareMarker from array and add to cluster.
 				if ($pixels < $distance)
 				{
 					unset($markers[$key]);
-					$target['distance'] = $pixels;
 					$cluster[] = $target;
 				}
 			}
@@ -295,8 +403,18 @@ class Json_Controller extends Template_Controller {
 				? "&s=".$start_date."&e=".$end_date
 				: "";
 			
+			// Build query string for title link, passing through any GET params
+			// This allows plugins to extend more easily
+			$query = http_build_query(array_merge(
+				array(
+					'sw' => $southwest,
+					'ne' => $northeast
+				),
+				$_GET
+			));
+			
 			// Build out the JSON string
-			$link = url::base()."reports/index/?c=".$category_id."&sw=".$southwest."&ne=".$northeast.$time_filter;
+			$link = url::site("reports/index/?$query");
 			$item_name = $this->get_title(Kohana::lang('ui_main.reports_count', $cluster_count), $link);
 			
 			$json_item = array();
@@ -319,59 +437,37 @@ class Json_Controller extends Template_Controller {
 			array_push($json_features, $json_item);
 		}
 
-		foreach ($singles as $single)
-		{
-			$link = url::base()."reports/view/".$single['id'];
-			$item_name = $this->get_title($single['incident_title'], $link);
-			
-			$json_item = array();
-			$json_item['type'] = 'Feature';
-			$json_item['properties'] = array(
-				'name' => $item_name,
-				'link' => $link,
-				'category' => array($category_id),
-				'color' => $color,
-				'icon' => $icon,
-				'thumb' => '',
-				'timestamp' => 0,
-				'count' => 1,
-			);
-			$json_item['geometry'] = array(
-				'type' => 'Point',
-				'coordinates' => array($single['longitude'], $single['latitude']),
-			);
-
-			array_push($json_features, $json_item);
-		}
+		// Pass single points to standard markers json
+		$json_features = array_merge($json_features, $this->markers_geojson($singles, $category_id, $color, $icon, FALSE));
 		
 		// 
 		// E.Kala July 27, 2011
 		// @todo Parking this geometry business for review
 		// 
-		
-		// if (count($geometry_array))
-		// {
-		// 	$json = implode(",", $geometry_array).",".$json;
-		// }
+		/*
+		//Get Incident Geometries
+		$geometry = $this->_get_geometry($marker->incident_id, $marker->incident_title, $marker->incident_date);
+		if (count($geometry))
+		{
+			foreach ($geometry as $g)
+			{
+				array_push($json_features, $g);
+			}
+		}
+		*/
 		
 		Event::run('ushahidi_filter.json_cluster_features', $json_features);
 		
-		$json = json_encode(array(
-			"type" => "FeatureCollection",
-			"features" => $json_features
-		));
-		
-		header('Content-type: application/json; charset=utf-8');
-		echo $json;
+		return $json_features;
 	}
 
 	/**
-	 * Retrieve Single Marker
+	 * Retrieve Single Marker (and its neighbours)
+	 * 
+	 * @param int $incident_id
 	 */
 	public function single($incident_id = 0)
 	{
-		$json = "";
-		$json_item = "";
 		$json_features = array();
 
 		$incident_id = intval($incident_id);
@@ -382,88 +478,27 @@ class Json_Controller extends Template_Controller {
 			throw new Kohana_404_Exception();
 		}
 
-		// Get the neigbouring incidents
-		$neighbours = Incident_Model::get_neighbouring_incidents($incident_id, FALSE, 20, 100);
+		// Load the incident
+		// @todo avoid the double load here
+		$marker = ORM::factory('incident')->where('incident.incident_active', 1)->with('location')->find($incident_id);
+		if ( ! $marker->loaded )
+		{
+			throw new Kohana_404_Exception();
+		}
+		
+		// Get geojson features for main incident (including geometry) 
+		$json_features = $this->markers_geojson(array($marker), 0, null, null, TRUE);
 
+		// Get the neigbouring incidents & their json (without geometries)
+		$neighbours = Incident_Model::get_neighbouring_incidents($incident_id, FALSE, 20, 100);
 		if ($neighbours)
 		{
-			// Load the incident
-			// @todo Get this fixed
-			$marker = ORM::factory('incident')->where('incident.incident_active',1)->find($incident_id);
-			if ( ! $marker->loaded )
-			{
-				throw new Kohana_404_Exception();
-			}
-			
-			// Get the incident/report date
-			$incident_date = date('Y-m', strtotime($marker->incident_date));
-
-			foreach ($neighbours as $row)
-			{
-				$link = url::base()."reports/view/".$row->id;
-				$item_name = $this->get_title($row->incident_title, $link);
-				
-				$json_item = array();
-				$json_item['type'] = 'Feature';
-				$json_item['properties'] = array(
-					'id' => $row->id,
-					'name' => $item_name,
-					'link' => $link,
-					'category' => array(0),
-					'timestamp' => strtotime($row->incident_date)
-				);
-				$json_item['geometry'] = array(
-					'type' => 'Point',
-					'coordinates' => array($row->longitude, $row->latitude)
-				);
-
-				array_push($json_features, $json_item);
-			}
-			
-			// Get Incident Geometries
-			$geometry = $this->_get_geometry($marker->id, $marker->incident_title, $marker->incident_date);
-			
-			// If there are no geometries, use Single Incident Marker
-			if ( ! count($geometry))
-			{
-				// Single Main Incident
-				$link = url::base()."reports/view/".$marker->id;
-				$item_name = $this->get_title($marker->incident_title, $link);
-	
-				$json_item = array();
-				$json_item['type'] = 'Feature';
-				$json_item['properties'] = array(
-					'id' => $marker->id,
-					'name' => $item_name,
-					'link' => $link,
-					'category' => array(0),
-					'timestamp' => strtotime($marker->incident_date)
-				);
-				$json_item['geometry'] = array(
-					'type' => 'Point',
-					'coordinates' => array($marker->location->longitude, $marker->location->latitude)
-				);
-				
-				array_push($json_features, $json_item);
-			}
-			else
-			{
-				foreach($geometry as $g)
-				{
-					array_push($json_features, $g);
-				}
-			}
+			$json_features = array_merge($json_features, $this->markers_geojson($neighbours, 0, null, null, FALSE));
 		}
 
 		Event::run('ushahidi_filter.json_single_features', $json_features);
 
-		$json = json_encode(array(
-			"type" => "FeatureCollection",
-			"features" => $json_features
-		));
-		
-		header('Content-type: application/json; charset=utf-8');
-		echo $json;
+		$this->render_geojson($json_features);
 	}
 
 	/**
@@ -481,6 +516,8 @@ class Json_Controller extends Template_Controller {
 		    : "month";
 
 		// Get Category Info
+		$category_title = "All Categories";
+		$category_color = "#990000";
 		if ($category_id > 0)
 		{
 			$category = ORM::factory("category", $category_id);
@@ -489,34 +526,27 @@ class Json_Controller extends Template_Controller {
 				$category_title = $category->category_title;
 				$category_color = "#".$category->category_color;
 			}
-			else
-			{
-				break;
-			}
-		}
-		else
-		{
-			$category_title = "All Categories";
-			$category_color = "#990000";
 		}
 
-		// Get the Counts
-		$select_date_text = "DATE_FORMAT(incident_date, '%Y-%m-01')";
-		$groupby_date_text = "DATE_FORMAT(incident_date, '%Y%m')";
+		// Change select / group by expression based on interval
+		// Not a great way to do this but can't think of a better option
+		// Default values: month
+		$select_date_text = "DATE_FORMAT(i.incident_date, '%Y-%m-01')";
+		$groupby_date_text = "DATE_FORMAT(i.incident_date, '%Y%m')";
 		if ($interval == 'day')
 		{
-			$select_date_text = "DATE_FORMAT(incident_date, '%Y-%m-%d')";
-			$groupby_date_text = "DATE_FORMAT(incident_date, '%Y%m%d')";
+			$select_date_text = "DATE_FORMAT(i.incident_date, '%Y-%m-%d')";
+			$groupby_date_text = "DATE_FORMAT(i.incident_date, '%Y%m%d')";
 		}
 		elseif ($interval == 'hour')
 		{
-			$select_date_text = "DATE_FORMAT(incident_date, '%Y-%m-%d %H:%M')";
-			$groupby_date_text = "DATE_FORMAT(incident_date, '%Y%m%d%H')";
+			$select_date_text = "DATE_FORMAT(i.incident_date, '%Y-%m-%d %H:%M')";
+			$groupby_date_text = "DATE_FORMAT(i.incident_date, '%Y%m%d%H')";
 		}
 		elseif ($interval == 'week')
 		{
-			$select_date_text = "STR_TO_DATE(CONCAT(CAST(YEARWEEK(incident_date) AS CHAR), ' Sunday'), '%X%V %W')";
-			$groupby_date_text = "YEARWEEK(incident_date)";
+			$select_date_text = "STR_TO_DATE(CONCAT(CAST(YEARWEEK(i.incident_date) AS CHAR), ' Sunday'), '%X%V %W')";
+			$groupby_date_text = "YEARWEEK(i.incident_date)";
 		}
 
 		$graph_data = array();
@@ -526,97 +556,66 @@ class Json_Controller extends Template_Controller {
 		$graph_data[0]['data'] = array();
 
 		// Gather allowed ids if we are looking at a specific category
-
 		$incident_id_in = '';
+		$params = array();
 		if ($category_id != 0)
 		{
 			$query = 'SELECT ic.incident_id AS id '
 			    . 'FROM '.$this->table_prefix.'incident_category ic '
 			    . 'INNER JOIN '.$this->table_prefix.'category c ON (ic.category_id = c.id) '
-			    . 'WHERE (c.id='.$category_id.' OR c.parent_id='.$category_id.')';
+			    . 'WHERE (c.id = :cid OR c.parent_id = :cid)';
+			
+			$params[':cid'] = $category_id;
+			$incident_id_in .= " AND i.id IN ( $query ) ";
+		}
+		
+		// Apply start and end date filters
+		if (isset($_GET['s']) AND isset($_GET['e']))
+		{
+			$query = 'SELECT filtered_incidents.id FROM '.$this->table_prefix.'incident AS filtered_incidents '
+			    . 'WHERE filtered_incidents.incident_date >= :datestart '
+			    . 'AND filtered_incidents.incident_date <= :dateend ';
 
-			$incident_id_in = $this->_exec_timeline_data_query($db, $query);
+			// Cast timestamps to int to avoid php error - they'll be sanitized again by db_query
+			$params[':datestart'] = date("Y-m-d H:i:s", (int)$_GET['s']);
+			$params[':dateend'] = date('Y-m-d H:i:s', (int)$_GET['e']);
+			$incident_id_in .= " AND i.id IN ( $query ) ";
 		}
 
-		// If a category id was specified and no data was returned,
-		// skip application of the other filters
-		if ($category_id !== 0 AND empty($incident_id_in))
+		// Apply media type filters
+		if (isset($_GET['m']) AND intval($_GET['m']) > 0)
 		{
-			$incident_id_in = ' AND 3 = 4';
-		}
-		else
-		{
-			// Apply start and end date filters
-			if (isset($_GET['s']) AND isset($_GET['e']))
-			{
-				$query = 'SELECT id FROM '.$this->table_prefix.'incident '
-				    . 'WHERE incident_date >= "'.date("Y-m-d H:i:s", $_GET['s']).'" '
-				    . 'AND incident_date <= "'.date('Y-m-d H:i:s', $_GET['e']).'"'
-				    . $incident_id_in;
+			$query = "SELECT incident_id AS id FROM ".$this->table_prefix."media "
+			    . "WHERE media_type = :mtype ";
 
-				$incident_id_in = $this->_exec_timeline_data_query($db, $query);
-
-				if (empty($incident_id_in))
-				{
-					$incident_id_in = ' AND 3 = 4';
-				}
-			}
-
-
-			// Apply media type filters
-			if (isset($_GET['m']) AND intval($_GET['m']) > 0)
-			{
-				$query = "SELECT incident_id AS id FROM ".$this->table_prefix."media "
-				    . "WHERE media_type = ".intval($_GET['m'])
-				    . $incident_id_in;
-
-				$incident_id_in = $this->_exec_timeline_data_query($db, $query);
-
-				if (empty($incident_id_in))
-				{
-					$incident_id_in = ' AND 3 = 4';
-				}
-			}
+			$params[':mtype'] = $_GET['m'];
+			$incident_id_in .= " AND i.id IN ( $query ) ";
 		}
 
 		// Fetch the timeline data
-		$query = 'SELECT UNIX_TIMESTAMP('.$select_date_text.') AS time, COUNT(id) AS number '
-		    . 'FROM '.$this->table_prefix.'incident '
-		    . 'WHERE incident_active = 1 '.$incident_id_in.' '
+		$query = 'SELECT UNIX_TIMESTAMP('.$select_date_text.') AS time, COUNT(i.id) AS number '
+		    . 'FROM '.$this->table_prefix.'incident AS i '
+		    . 'WHERE i.incident_active = 1 '.$incident_id_in.' '
 		    . 'GROUP BY '.$groupby_date_text;
+
+		foreach ($db->query($query, $params) as $items)
+		{
+			array_push($graph_data[0]['data'], array($items->time * 1000, $items->number));
+		}
 		
-		foreach ($db->query($query) as $items)
+		// If no data fake a flat line graph
+		// This is so jqplot still plots something
+		if (count($graph_data[0]['data']) == 0)
 		{
-			array_push($graph_data[0]['data'],
-				array($items->time * 1000, $items->number));
+			array_push($graph_data[0]['data'], array((int)$_GET['s'] * 1000, 0));
+			array_push($graph_data[0]['data'], array((int)$_GET['e'] * 1000, 0));
 		}
 
+		// Debug: push the query back in json
+		//$graph_data['query'] = $db->last_query();
+
+		header('Content-type: application/json; charset=utf-8');
 		echo json_encode($graph_data);
-	}
-
-	/**
-	 * Given a query, generates an 'IN' clause to be used
-	 * in the final query that is used to fetch the timeline data
-	 *
-	 * @param Database $db Database instance to use for executing the query
-	 * @param string $query SQL query to be executed
-	 */
-	private function _exec_timeline_data_query($db, $query)
-	{
-		$incident_id_in = '';
-		$allowed_ids = array();
-
-		foreach ($db->query($query) as $incident)
-		{
-			$allowed_ids[] = $incident->id;
-		}
-
-		// Adjust the incident filter clause
-		$incident_id_in = (count($allowed_ids) > 0)
-		    ? ' AND id IN ('.implode(',', $allowed_ids).')'
-		    : '';
-
-	    return $incident_id_in;
 	}
 	
 
@@ -655,10 +654,6 @@ class Json_Controller extends Template_Controller {
 			{
 				echo $content;
 			}
-			else
-			{
-				echo "";
-			}
 		}
 		else
 		{
@@ -671,9 +666,10 @@ class Json_Controller extends Template_Controller {
 	 * @param int $incident_id
 	 * @param string $incident_title
 	 * @param int $incident_date
+	 * @param string $incident_link
 	 * @return array $geometry
 	 */
-	private function _get_geometry($incident_id, $incident_title, $incident_date)
+	protected function get_geometry($incident_id, $incident_title, $incident_date, $incident_link)
 	{
 		$geometry = array();
 		if ($incident_id)
@@ -687,14 +683,11 @@ class Json_Controller extends Template_Controller {
 				$geom_array = $geom->getGeoInterface();
 
 				$title = ($item->geometry_label) ? $item->geometry_label : $incident_title;
-				$link =  url::base()."reports/view/".$incident_id;
-				$item_name = $this->get_title($title, $link);
+				$item_name = $this->get_title($title, $incident_link);
 					
-				$fillcolor = ($item->geometry_color) ? 
-					utf8tohtml::convert($item->geometry_color,TRUE) : "ffcc66";
+				$fillcolor = ($item->geometry_color) ? $item->geometry_color : "ffcc66";
 					
-				$strokecolor = ($item->geometry_color) ? 
-					utf8tohtml::convert($item->geometry_color,TRUE) : "CC0000";
+				$strokecolor = ($item->geometry_color) ? $item->geometry_color : "CC0000";
 					
 				$strokewidth = ($item->geometry_strokewidth) ? $item->geometry_strokewidth : "3";
 
@@ -704,12 +697,12 @@ class Json_Controller extends Template_Controller {
 					'id' => $incident_id,
 					'feature_id' => $item->id,
 					'name' => $item_name,
-					'description' => utf8tohtml::convert($item->geometry_comment,TRUE),
+					'description' => $item->geometry_comment,
 					'color' => $fillcolor,
 					'icon' => '',
 					'strokecolor' => $strokecolor,
 					'strokewidth' => $strokewidth,
-					'link' => $link,
+					'link' => $incident_link,
 					'category' => array(0),
 					'timestamp' => strtotime($incident_date),
 				);
@@ -808,28 +801,32 @@ class Json_Controller extends Template_Controller {
 		$lat_sum = $lon_sum = 0;
 		foreach ($cluster as $marker)
 		{
-			if ($marker['latitude'] < $south)
+			// Handle both reports::fetch_incidents() response and actual ORM objects
+			$latitude = isset($marker->latitude) ? $marker->latitude : $marker->location->latitude;
+			$longitude = isset($marker->longitude) ? $marker->longitude : $marker->location->longitude;
+			
+			if ($latitude < $south)
 			{
-				$south = $marker['latitude'];
+				$south = $latitude;
 			}
 
-			if ($marker['longitude'] < $west)
+			if ($longitude < $west)
 			{
-				$west = $marker['longitude'];
+				$west = $longitude;
 			}
 
-			if ($marker['latitude'] > $north)
+			if ($latitude > $north)
 			{
-				$north = $marker['latitude'];
+				$north = $latitude;
 			}
 
-			if ($marker['longitude'] > $east)
+			if ($longitude > $east)
 			{
-				$east = $marker['longitude'];
+				$east = $longitude;
 			}
 
-			$lat_sum += $marker['latitude'];
-			$lon_sum += $marker['longitude'];
+			$lat_sum += $latitude;
+			$lon_sum += $longitude;
 		}
 		$lat_avg = $lat_sum / count($cluster);
 		$lon_avg = $lon_sum / count($cluster);
@@ -853,9 +850,7 @@ class Json_Controller extends Template_Controller {
 	 */
 	protected function get_title($title, $url)
 	{
-		$encoded_title = utf8tohtml::convert($title, TRUE);
-		$encoded_title = str_ireplace('"','&#34;',$encoded_title);
-		$item_name = "<a href='$url'>".$encoded_title."</a>";
+		$item_name = "<a href='$url'>".$title."</a>";
 		$item_name = str_replace(array(chr(10),chr(13)), ' ', $item_name);
 		return $item_name;
 	}

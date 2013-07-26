@@ -77,29 +77,25 @@ function smartColumns() {
 /**
  * Callback function for rendering the timeline
  */
-function refreshTimeline() {
+function refreshTimeline(options) {
 
 	<?php if (Kohana::config('settings.enable_timeline')) {?>
 
-	var options = (arguments.length == 0) ? {} : arguments[0];
-
-	// Compute the start and end dates
-	var from = (options.s == undefined)
-	    ? new Date(startTime * 1000)
-	    : new Date(options.s * 1000);
-
-	var to = (options.e == undefined)
-	    ? new Date(endTime * 1000)
-	    : new Date(options.e * 1000);
+	// Use report filters if no options passed
+	options = options || map.getReportFilters();
+	// Copy options object to avoid accidental modifications to reportFilters
+	options = jQuery.extend({}, options);
 
 	var url = "<?php echo url::site().'json/timeline/'; ?>";
-	url += (options.c !== undefined && parseInt(options.c) > 0) ?  options.c : '';
 
-	var interval = (to - from) / (1000 * 3600 * 24);
+	var interval = (options.e - options.s) / (3600 * 24);
+
 	if (interval <= 3) {
 		options.i = "hour";
-	} else if (interval >= 124) {
+	} else if (interval <= (31 * 6)) {
 		options.i = "day";
+	} else {
+		options.i = "month";
 	}
 
 	// Get the graph data
@@ -119,10 +115,8 @@ function refreshTimeline() {
 				var date = new Date(raw[i][0]);
 
 				var dateStr = date.getFullYear() + "-";
-				dateStr += (date.getMonth() < 10) ? "0" : "";
-				dateStr += (date.getMonth() +1) + "-" ;
-				dateStr += (date.getDate() < 10) ? "0" : "";
-				dateStr += date.getDate();
+				dateStr += ('0' + (date.getMonth()+1)).slice(-2) + '-';
+				dateStr += ('0' + date.getDate()).slice(-2);
 
 				graphData.push([dateStr, parseInt(raw[i][1])]);
 			}
@@ -174,7 +168,7 @@ jQuery(function() {
 		zoom: <?php echo Kohana::config('settings.default_zoom'); ?>,
 
 		// Redraw the layers when the zoom level changes
-		redrawOnZoom: true,
+		redrawOnZoom: <?php echo Kohana::config('settings.allow_clustering') == 1 ? "true" : "false"; ?>,
 
 		// Center of the map
 		center: {
@@ -184,10 +178,9 @@ jQuery(function() {
 
 		// Map controls
 		mapControls: [
-			new OpenLayers.Control.LoadingPanel({minSize: new OpenLayers.Size(573, 366)}),
-			new OpenLayers.Control.Navigation(),
+			new OpenLayers.Control.Navigation({ dragPanOptions: { enableKinetic: true } }),
 			new OpenLayers.Control.Attribution(),
-			new OpenLayers.Control.PanZoomBar(),
+			new OpenLayers.Control.Zoom(),
 			new OpenLayers.Control.MousePosition({
 				div: document.getElementById('mapMousePosition'),
 				numdigits: 5
@@ -201,7 +194,12 @@ jQuery(function() {
 		baseLayers: <?php echo map::layers_array(FALSE); ?>,
 
 		// Display the map projection
-		showProjection: true
+		showProjection: true,
+		
+		reportFilters: {
+			s: startTime,
+			e: endTime
+		}
 
 	};
 
@@ -209,13 +207,17 @@ jQuery(function() {
 	map = new Ushahidi.Map('map', config);
 	map.addLayer(Ushahidi.GEOJSON, {
 		name: "<?php echo Kohana::lang('ui_main.reports'); ?>",
-		url: reportsURL
-	}, true);
+		url: reportsURL,
+		transform: false
+	}, true, true);
 
 
 	// Register the referesh timeline function as a callback
 	map.register("filterschanged", refreshTimeline);
-	setTimeout(function() { refreshTimeline(); }, 1500);
+	setTimeout(function() { refreshTimeline({
+		s: startTime,
+		e: endTime
+	}); }, 800);
 
 
 	// Category Switch Action
@@ -298,10 +300,10 @@ jQuery(function() {
 	});
 	
 	// Media Filter Action
-	$('.filters li a').click(function() {
+	$('.filters a').click(function() {
 		var mediaType = parseFloat(this.id.replace('media_', '')) || 0;
 		
-		$('.filters li a').attr('class', '');
+		$('.filters a.active').removeClass('active');
 		$(this).addClass('active');
 
 		// Update the report filters
@@ -333,13 +335,22 @@ jQuery(function() {
 		default: ciStyle
 	});
 
-	// Add the checkins layer
-	map.addLayer(Ushahidi.GEOJSON, {
-		url: checkinsURL,
-		name: "Checkins",
-		callback: json2GeoJSON,
-		styleMap: checkinStyleMap,
-		transform: true,
+	$.getJSON(checkinsURL, function(data)
+	{
+		var jsonFormat = new OpenLayers.Format.JSON();
+		var jsonStr = jsonFormat.write(json2GeoJSON(data));
+		var format = new OpenLayers.Format.GeoJSON();
+		layerFeatures = format.read(jsonStr);
+		if (layerFeatures.length > 0) {
+			// Add the checkins layer
+			map.addLayer(Ushahidi.GEOJSON, {
+				url: checkinsURL,
+				name: "Checkins",
+				features: layerFeatures,
+				styleMap: checkinStyleMap,
+				transform: true,
+			}, false, true);
+		}
 	});
 
 	/**

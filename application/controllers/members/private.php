@@ -145,7 +145,7 @@ class Private_Controller extends Members_Controller {
 		$this->template->content->total_items = $pagination->total_items;
 		
 		// Javascript Header
-		$this->template->js = new View('members/private_js');
+		$this->themes->js = new View('members/private_js');
 	}
 	
 	/**
@@ -258,8 +258,8 @@ class Private_Controller extends Members_Controller {
 		$this->template->content->form_saved = $form_saved;
 		
 		// Javascript Header
-		$this->template->autocomplete_enabled = TRUE;
-		$this->template->js = new View('members/private_send_js');
+		$this->themes->autocomplete_enabled = TRUE;
+		$this->themes->js = new View('members/private_send_js');
 	}
 	
 	/**
@@ -271,11 +271,13 @@ class Private_Controller extends Members_Controller {
 		$this->template = "";
 		$this->auto_render = FALSE;
 		
-		$name = (isset($_GET['q'])) ? strtolower($_GET['q']) : "";
+		$name = (isset($_GET['q'])) ? utf8::strtolower('%'.str_replace(array('%','_'), array('|%','|_'), $_GET['q']).'%') : "";
 		
 		if ($name)
 		{
-			$users = $db->query("SELECT * from users where id != ? AND LOWER(name) LIKE ?",$this->user->id,$name);
+			$users = $db->query("SELECT * from users where id != :id AND LOWER(name) LIKE :name ESCAPE '|'",
+				array(':id' => $this->user->id, ':name' => $name));
+			
 			foreach ($users as $user)
 			{
 				echo "$user->name\n";
@@ -295,12 +297,13 @@ class Private_Controller extends Members_Controller {
 	{
 		$account = ORM::factory('user')
 			->where("name", $name)
+			->orwhere("username", $name)
+			->orwhere("email", $name)
 			->where("id !=".$this->user->id)
 			->find();
-			
+
 		if ( ! $account->loaded)
 		{
-			echo "{{{$name}}}";
 			$post->add_error('private_to','exists');
 		}
 	}

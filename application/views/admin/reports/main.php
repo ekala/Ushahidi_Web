@@ -22,7 +22,7 @@
 					<!-- tabset -->
 					<ul class="tabset">
 						<li>
-							<a href="?status=0" <?php if ($status != 'a' AND $status !='v' AND $status != 'o') echo "class=\"active\""; ?>><?php echo Kohana::lang('ui_main.show_all');?></a>
+							<a href="?status=0" <?php if ($status != 'a' AND $status !='v' AND $status != 'o' AND  $status != 'search') echo "class=\"active\""; ?>><?php echo Kohana::lang('ui_main.show_all');?></a>
 						</li>
 						<li><a href="?status=a" <?php if ($status == 'a') echo "class=\"active\""; ?>><?php echo Kohana::lang('ui_main.awaiting_approval');?></a></li>
 						<li><a href="?status=v" <?php if ($status == 'v') echo "class=\"active\""; ?>><?php echo Kohana::lang('ui_main.awaiting_verification');?></a></li>
@@ -31,9 +31,14 @@
 								<?php echo Kohana::lang('ui_main.uncategorized_reports'); ?>
 							</a>
 						</li>
+						<li class="right">
+							<a href="?status=search" class="search <?php if ($status == 'search') echo "active"; ?>">
+								<?php echo Kohana::lang('ui_main.search'); ?>
+							</a>
+						</li>
 					</ul>
 					<!-- tab -->
-					<div class="tab">
+					<div class="tab action-tab active">
 						<ul>
 							<?php if (Auth::instance()->has_permission('reports_approve')): ?>
 							<li><a href="#" onclick="reportAction('a','<?php echo utf8::strtoupper(Kohana::lang('ui_main.approve')); ?>', '');">
@@ -54,6 +59,30 @@
 							</li>
 							<?php endif; ?>
 						</ul>
+						
+						<div class="sort_by">
+							<?php print form::open(NULL, array('method' => 'get', 'class' => 'sort-form')); ?>
+							<?php echo Kohana::lang('ui_main.sort_by'); ?>
+							<?php echo form::dropdown('order', array(
+								'date' => Kohana::lang('ui_admin.report_date'),
+								'id' => Kohana::lang('ui_main.id'),
+								'datemodify' => Kohana::lang('ui_admin.date_modified'),
+								'dateadd' => Kohana::lang('ui_admin.date_added'),
+								'title' => Kohana::lang('ui_admin.report_title'),
+							), $order_field); 
+							echo form::input(array(
+									'type'  => 'hidden',
+									'name'  => 'sort',
+									'value' => $sort,
+									'class' => 'sort-field'
+								));
+							echo form::hidden('status', $status);
+							echo form::close(); ?>
+						</div>
+					</div>
+					
+					<div class="content-tab search-tab">
+						<?php echo $search_form; ?>
 					</div>
 				</div>
 				<?php if ($form_error): ?>
@@ -76,7 +105,7 @@
 					<div class="green-box" id="submitStatus">
 						<h3><?php echo Kohana::lang('ui_main.reports');?> 
 							<?php echo $form_action; ?> 
-							<a href="#" id="hideMessage" class="hide"><?php echo Kohana::lang('hide_this_message'); ?></a>
+							<a href="#" id="hideMessage" class="hide"><?php echo Kohana::lang('ui_main.hide_this_message'); ?></a>
 						</h3>
 					</div>
 				<?php endif; ?>
@@ -94,7 +123,10 @@
 									</th>
 									<th class="col-2"><?php echo Kohana::lang('ui_main.report_details');?></th>
 									<th class="col-3"><?php echo Kohana::lang('ui_main.date');?></th>
-									<th class="col-4"><?php echo Kohana::lang('ui_main.actions');?></th>
+									<th class="col-4">
+										<a class="sort sort-<?php echo $sort; ?>" title="<?php echo ($sort == 'ASC') ? Kohana::lang('ui_main.ascending') : Kohana::lang('ui_main.descending'); ?>" href="#"></a>
+										<?php echo Kohana::lang('ui_main.actions');?>
+									</th>
 								</tr>
 							</thead>
 							<tfoot>
@@ -116,8 +148,8 @@
 								foreach ($incidents as $incident)
 								{
 									$incident_id = $incident->incident_id;
-									$incident_title = strip_tags($incident->incident_title);
-									$incident_description = text::limit_chars(strip_tags($incident->incident_description), 150, "...", true);
+									$incident_title = html::escape($incident->incident_title);
+									$incident_description = text::limit_chars(html::strip_tags($incident->incident_description), 150, "...", true);
 									$incident_date = $incident->incident_date;
 									$incident_date = date('Y-m-d', strtotime($incident->incident_date));
 									
@@ -129,6 +161,7 @@
 									
 									// Get the person submitting the report
 									$incident_person = $incident_orm->incident_person;
+									$submit_by = NULL;
 									
 									//XXX incident_Mode will be discontinued in favour of $service_id
 									if ($incident_mode == 1)	// Submitted via WEB
@@ -140,16 +173,11 @@
 											// Report was submitted by a visitor
 											$submit_by = $incident_person->person_first . " " . $incident_person->person_last;
 										}
-										else
+										
+										// If $submit_by is empty, check for user id
+										if (trim($submit_by) == "" AND $incident_orm->user_id)	// Report Was Submitted By authenticated user
 										{
-											if ($incident_orm->user_id)					// Report Was Submitted By Administrator
-											{
-												$submit_by = $incident_orm->user->name;
-											}
-											else
-											{
-												$submit_by = Kohana::lang('ui_admin.unknown');
-											}
+											$submit_by = $incident_orm->user->name;
 										}
 									}
 									elseif ($incident_mode == 2) 	// Submitted via SMS
@@ -168,14 +196,15 @@
 										$submit_by = $incident_orm->message->message_from;
 									}
 									
-									// Get the country name
-									$country_name = ($incident->country_id != 0)
-										? $countries[$incident->country_id] 
-										: $countries[Kohana::config('settings.default_country')]; 
+									// If $submit_by is still empty, set it to Unknown
+									if (trim($submit_by) == "")
+									{
+										$submit_by = Kohana::lang('ui_admin.unknown');
+									}
 									
 									// Incident location
-									$incident_location = $incident->location_id ? $incident->location_name.', '.$country_name : Kohana::lang('ui_main.none');
-							
+									$incident_location = $incident->location_id ? $incident->location_name : Kohana::lang('ui_main.none');
+									
 									// Retrieve Incident Categories
 									$incident_category = "";
 									if ($incident_orm->incident_category->count() > 0)
@@ -246,8 +275,7 @@
 												<li class="none-separator"><?php echo Kohana::lang('ui_main.location');?>: 
 													<strong><?php echo html::specialchars($incident_location); ?></strong>
 												</li>
-												<li><?php echo Kohana::lang('ui_main.submitted_by');?> 
-													<strong><?php echo html::specialchars($submit_by); ?></strong> via <strong><?php echo html::specialchars($submit_mode); ?></strong>
+												<li><?php echo Kohana::lang('ui_main.submitted_by', array($submit_by, $submit_mode));?>
 												</li>
 											</ul>
 											<ul class="links">

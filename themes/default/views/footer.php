@@ -11,13 +11,13 @@
 		<div id="underfooter"></div>
 
 		<!-- footer content -->
-		<div class="rapidxwpr floatholder">
+		<div class="wrapper floatholder rapidxwpr">
 
 			<!-- footer credits -->
 			<div class="footer-credits">
 				Powered by the &nbsp;
 				<a href="http://www.ushahidi.com/">
-					<img src="<?php echo url::file_loc('img'); ?>media/img/footer-logo.png" alt="Ushahidi" style="vertical-align:middle" />
+					<img src="<?php echo url::file_loc('img'); ?>media/img/footer-logo.png" alt="Ushahidi" class="footer-logo" />
 				</a>
 				&nbsp; Platform
 			</div>

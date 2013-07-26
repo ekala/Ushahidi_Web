@@ -76,8 +76,8 @@ class Upgrade_Controller extends Admin_Controller {
 			{
 				$this->upgrade->logger("STARTED UPGRADE\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
 				$this->template->content = new View('admin/upgrade/upgrade_status');
-				$this->template->js = new View('admin/upgrade/upgrade_status_js');
-				$this->template->js->backup = $post->chk_db_backup_box;
+				$this->themes->js = new View('admin/upgrade/upgrade_status_js');
+				$this->themes->js->backup = $post->chk_db_backup_box;
 				$this->template->content->title = Kohana::lang('ui_admin.upgrade_ushahidi_status');
 				
 				$this->session->set('ftp_server', $post->ftp_server);
@@ -88,12 +88,12 @@ class Upgrade_Controller extends Admin_Controller {
 				Settings_Model::save_setting('ftp_user_name', $post->ftp_user_name);
 				
 				// Log file location
-				$this->template->js->log_file = url::site(). "admin/upgrade/logfile?f=".$this->session->get('upgrade_session').".txt";
+				$this->themes->js->log_file = url::site(). "admin/upgrade/logfile?f=".$this->session->get('upgrade_session').".txt";
 			}
 			 // No! We have validation errors, we need to show the form again, with the errors
 			else
 			{
-				$this->template->js = new View('admin/upgrade/upgrade_js');
+				$this->themes->js = new View('admin/upgrade/upgrade_js');
 				
 				// repopulate the form fields
 				$form = arr::overwrite($form, $post->as_array());
@@ -105,7 +105,7 @@ class Upgrade_Controller extends Admin_Controller {
 		}
 		else
 		{
-			$this->template->js = new View('admin/upgrade/upgrade_js');
+			$this->themes->js = new View('admin/upgrade/upgrade_js');
 		}
 		
 		$this->template->content->ftp_server = Settings_Model::get_setting('ftp_server');
@@ -294,6 +294,13 @@ class Upgrade_Controller extends Admin_Controller {
 		//This is an AJAX call, so none of this fancy templating, just render the data
 		$this->template = "";
 		$this->auto_render = FALSE;
+		
+		// Disable profiler
+		if (isset($this->profiler))
+		{
+			$this->profiler->disable();
+		}
+		
 		$view = View::factory('admin/current_version');
 		
 		$upgrade = new Upgrade;
@@ -410,8 +417,13 @@ class Upgrade_Controller extends Admin_Controller {
 				'INSERT IGNORE INTO `',
 				'ALTER TABLE `',
 				'UPDATE `',
-				'DELETE FROM `',
+				'FROM `',
 				'LOCK TABLES `',
+				'DROP TABLE IF EXISTS `',
+				'RENAME TABLE `',
+				' TO `',
+				 // Potentially problematic. We use this to catch CREATE TABLE X LIKE Y, but could catch SELECT * WHERE X LIKE Y;
+				' LIKE `',
 			);
 			
 			$replace = array(
@@ -420,8 +432,12 @@ class Upgrade_Controller extends Admin_Controller {
 				'INSERT IGNORE INTO `'.$table_prefix,
 				'ALTER TABLE `'.$table_prefix,
 				'UPDATE `'.$table_prefix,
-				'DELETE FROM `'.$table_prefix,
+				'FROM `'.$table_prefix,
 				'LOCK TABLES `'.$table_prefix,
+				'DROP TABLE IF EXISTS `'.$table_prefix,
+				'RENAME TABLE `'.$table_prefix,
+				' TO `'.$table_prefix,
+				' LIKE `'.$table_prefix,
 			);
 			
 			$upgrade_schema = str_replace($find, $replace, $upgrade_schema);
@@ -435,7 +451,7 @@ class Upgrade_Controller extends Admin_Controller {
 		foreach ($queries as $query)
 		{
 			// Trim whitespace and make sure we're not running an empty query (for example from the new line after the last query.)
-			$query = trim($query);
+			$query = utf8::trim($query);
 			if (!empty($query))
 			{
 				$result = $this->db->query($query);

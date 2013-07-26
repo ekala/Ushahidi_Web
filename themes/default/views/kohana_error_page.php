@@ -1,4 +1,20 @@
 <?php defined('SYSPATH') OR die('No direct access allowed.'); ?>
+<?php
+if (PHP_SAPI === 'cli')
+{
+	echo $error . ': ' . $message ."\n";
+	if ( ! empty($file))
+	{
+		echo "FILE: ".$file."\n";
+	}
+	if ( ! empty($line))
+	{
+		echo "LINE: ".$line."\n";
+	}
+	echo "ERROR: ".$message."\n";
+	exit();
+}
+?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
 <head>
@@ -25,7 +41,9 @@ echo html::script('media/js/bugs', true);
 <div id="loader"></div>
 <?php
 $user_agent = isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : "";
-$url = $_SERVER["SERVER_NAME"].$_SERVER["REQUEST_URI"];
+$url = ( isset($_SERVER["SERVER_NAME"]) AND isset($_SERVER["REQUEST_URI"]) )
+	? $_SERVER["SERVER_NAME"].$_SERVER["REQUEST_URI"]
+	: '';
 $referer = isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : "";
 $ip_address = isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : "";
 
@@ -49,54 +67,7 @@ if ( ! empty($line))
 $error_message .= "ERROR: ".$message."\n";
 ?>
 <div id="bug_form">
-	<p class="bug_form_desc">Found a bug? Please fill out and submit the form below - help us make Ushahidi better software -- Thanks!</p>
-	<p class="bug_form_desc">All fields are required!</p>
-	<table width="100%" border="0" cellspacing="0" cellpadding="6">
-		<?php echo form::open('http://bugs.ushahidi.com', array('method' => 'post', 'id' => 'form', 'onSubmit' => "return validatePost();")); ?>
-			<input name="tracker" type="hidden" value="Bug">
-			<input name="remote" type="hidden" value="yes">
-			<tr>
-				<td width="25%" align="right" valign="top" bgcolor="#eeeeee" class="label">Subject:</td>
-				<td width="75%" bgcolor="#eeeeee">
-					<input name="subject" id="subject" value="" class="text long" />
-					<label class="error" for="name" id="subject_error">This field is required.</label>
-				</td>
-			</tr>
-			<tr>
-				<td align="right" valign="top" class="label">Your Name:</td>
-				<td>
-					<input name="yourname" id="yourname" value="" class="text long" />
-					<label class="error" for="name" id="yourname_error">This field is required.</label>
-				</td>
-			</tr>
-			<tr bgcolor="#eeeeee">
-				<td align="right" valign="top" class="label">Your Email Address:</td>
-				<td>
-					<input name="email" id="email" value="" class="text long" />
-					<label class="error" for="name" id="email_error">This field is required.</label>
-				</td>
-			</tr>
-			<tr>
-				<td align="right" valign="top" class="label">Please describe what you were doing when this error occurred:</td>
-				<td>
-					<textarea id="description" name="description" class="textarea long" rows="10"></textarea>
-					<label class="error" for="description" id="description_error">This field is required.</label>
-				</td>
-			</tr>
-			<tr bgcolor="#eeeeee">
-				<td align="right" valign="top" class="label">Error:</td>
-				<td><textarea name="error_message" rows="3" class="textarea long environ" id="error_message" readonly="readonly"><?php echo $error_message; ?></textarea></td>
-			</tr>
-			<tr>
-				<td align="right" valign="top" class="label">Your Environment:</td>
-				<td><textarea name="environ" rows="3" class="textarea long environ" id="environ" readonly="readonly"><?php echo $environ; ?></textarea></td>
-			</tr>
-			<tr>
-				<td>&nbsp;</td>
-				<td><input name="submit" type="submit" class="action_btn" id="submit" value="Submit" /></td>
-			</tr>
-		<?php echo form::close(); ?>
-	</table>
+	<p class="bug_form_desc">Found a bug? Submit a bug report to the Ushahidi <a href="https://github.com/ushahidi/Ushahidi_Web/issues">Github issues page</a>- help us make Ushahidi better software -- Thanks!</p>
 </div>
 <?php if ( ! empty($trace)): ?>
 <h3><?php echo Kohana::lang('core.stack_trace') ?></h3>

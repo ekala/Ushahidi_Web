@@ -83,16 +83,15 @@
 										$page_id = $page->id;
 										$page_title = $page->page_title;
 										$page_tab = $page->page_tab;
-										$page_description = htmlspecialchars_decode($page->page_description);
-										$page_description_short = text::limit_chars(strip_tags($page_description), "100", "...");
+										$page_description = $page->page_description;
 										$page_active = $page->page_active;
 										?>
 										<tr>
 											<td class="col-1">&nbsp;</td>
 											<td class="col-2">
 												<div class="post">
-													<h4><?php echo $page_title; ?></h4>
-													<p><?php echo $page_description_short; ?></p>
+													<h4><?php echo html::escape($page_title); ?></h4>
+													<p><?php echo text::limit_chars(html::strip_tags($page_description), "100", "..."); ?></p>
 												</div>
 											</td>
 											
@@ -141,7 +140,7 @@
 						</div>
 						<div class="tab_form_item2">
 							<strong><?php echo Kohana::lang('ui_main.page_description');?>:</strong><br />
-							<?php print form::textarea('page_description',$form['page_description'],' rows="12" cols="60" ','id = page_description'); ?>
+							<?php print form::textarea('page_description',$form['page_description'],' rows="12" cols="120" ','id = page_description'); ?>
 						</div>
 						<?php
 							// Action::page_form_admin - Runs just after the page description

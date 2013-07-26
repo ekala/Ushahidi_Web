@@ -27,12 +27,9 @@ $(document).ready(function() {
 			longitude: <?php echo $default_lon; ?>
 		},
 		mapControls: [
-		    new OpenLayers.Control.Navigation(),
-		    new OpenLayers.Control.MouseDefaults(),
-		    new OpenLayers.Control.PanZoom(),
-		    new OpenLayers.Control.ArgParser(),
-		    new OpenLayers.Control.MousePosition(),
-		    new OpenLayers.Control.LoadingPanel({minSize: new OpenLayers.Size(573, 366)})
+		    new OpenLayers.Control.Navigation({ dragPanOptions: { enableKinetic: true } }),
+		    new OpenLayers.Control.Zoom(),
+		    new OpenLayers.Control.MousePosition()
 		],
 		
 		// Base layers

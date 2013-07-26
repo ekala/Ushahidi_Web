@@ -77,6 +77,11 @@ class Cloudfiles {
 		$this->username = Kohana::config("cdn.cdn_username");
 		$this->api_key = Kohana::config("cdn.cdn_api_key");
 		$this->container = Kohana::config("cdn.cdn_container");
+	}
+
+	public function authenticate()
+	{
+		if($this->conn) return;
 
 		// Include CF libraries
 		require_once Kohana::find_file('libraries/cloudfiles', 'CF_Authentication');
@@ -85,24 +90,20 @@ class Cloudfiles {
 		require_once Kohana::find_file('libraries/cloudfiles', 'CF_Http');
 		require_once Kohana::find_file('libraries/cloudfiles', 'CF_Object');
 
-		// Authenticate with Rackspace
-		$this->authenticate();
-	}
-
-	public function authenticate()
-	{
 		$auth = new CF_Authentication($this->username, $this->api_key);
 		$auth->authenticate();
 		$this->conn = new CF_Connection($auth);
 	}
 
 	// $file must be the absolute path to the file
-	public function upload($filename)
+	public function upload($filename, $appendUploadDir = TRUE)
 	{
+		$this->authenticate();
+
 		$local_directory = Kohana::config('upload.directory', TRUE);
 		$local_directory = rtrim($local_directory, '/').'/';
 
-		$fullpath = $local_directory.$filename;
+		$fullpath = $appendUploadDir ? $local_directory.$filename : DOCROOT.$filename;
 
 		// Put this in a special directory based on subdomain if subdomain is set
 		$dir = $this->_special_dir();
@@ -122,11 +123,13 @@ class Cloudfiles {
 		$uri = $container->make_public();
 
 		// Return the file path URL
-		return $file->public_ssl_uri();
+		return (Kohana::config('config.external_site_protocol') == 'https') ? $file->public_ssl_uri() : $file->public_uri();
 	}
 
 	public function delete($url)
 	{
+		$this->authenticate();
+
 		// Get the container that has the object
 		$container = $this->conn->get_container($this->container);
 
