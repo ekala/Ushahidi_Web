@@ -80,7 +80,7 @@ class reports_Core {
 		{
 			foreach ($post->incident_news as $key => $url) 
 			{
-				if ( ! empty($url) AND !(bool) filter_var($url, FILTER_VALIDATE_URL, FILTER_FLAG_HOST_REQUIRED))
+				if ( ! empty($url) AND ! valid::url($url))
 				{
 					$post->add_error('incident_news','url');
 				}
@@ -92,7 +92,7 @@ class reports_Core {
 		{
 			foreach ($post->incident_video as $key => $url) 
 			{
-				if (!empty($url) AND !(bool) filter_var($url, FILTER_VALIDATE_URL, FILTER_FLAG_HOST_REQUIRED))
+				if (!empty($url) AND ! valid::url($url))
 				{
 					$post->add_error('incident_video','url');
 				}
@@ -145,19 +145,9 @@ class reports_Core {
 		$post->add_rules('incident_active', 'between[0,1]');
 		$post->add_rules('incident_verified', 'between[0,1]');
 		$post->add_rules('incident_zoom', 'numeric');
-		
+
 		// Custom form fields validation
-		$errors = customforms::validate_custom_form_fields($post);
-
-		// Check if any errors have been returned
-		if (count($errors) > 0)
-		{
-			foreach ($errors as $field_name => $error)
-			{
-				$post->add_error($field_name, $error);
-			}
-		}
-
+		customforms::validate_custom_form_fields($post);
 		//> END custom form fields validation
 
 		// Return
@@ -236,11 +226,10 @@ class reports_Core {
 			$incident->form_id = $post->form_id;
 		}
 		
-
 		// Check if the user id has been specified
-		if ( ! $incident->loaded AND isset($_SESSION['auth_user']))
+		if ( ! $incident->loaded AND Auth::instance()->get_user() instanceof User_Model)
 		{
-			$incident->user_id = $_SESSION['auth_user']->id;
+			$incident->user_id = Auth::instance()->get_user()->id;
 		}
 		
 		$incident->incident_title = $post->incident_title;
@@ -325,7 +314,11 @@ class reports_Core {
 		$verify->incident_id = $incident->id;
 		
 		// Record 'Verified By' Action
-		$verify->user_id = $_SESSION['auth_user']->id;
+		$verify->user_id = 0;
+		if (Auth::instance()->get_user() instanceof User_Model)
+		{
+			$verify->user_id = Auth::instance()->get_user()->id;
+		}
 		$verify->verified_date = date("Y-m-d H:i:s",time());
 		
 		if ($incident->incident_active == 1)
@@ -429,7 +422,6 @@ class reports_Core {
 	{
 		// Delete Previous Entries
 		ORM::factory('media')->where('incident_id',$incident->id)->where('media_type <> 1')->delete_all();
-		
 
 		// a. News
 		if (isset($post->incident_news))
@@ -452,15 +444,73 @@ class reports_Core {
 		// b. Video
 		if (isset($post->incident_video))
 		{
-			foreach ($post->incident_video as $item)
+			$videoembed = new VideoEmbed();
+			foreach ($post->incident_video as $k => $item)
 			{
 				if ( ! empty($item))
 				{
+					$video_thumb = $videoembed->thumbnail($item);
+					$new_filename = $incident->id.'_v'.$k.'_'.time();
+					$file_type = substr($video_thumb,-4);
+					$media_thumb = NULL;
+					$media_medium = NULL;
+
+					// Make sure file has an image extension
+					if ($video_thumb AND in_array($file_type, array('.gif','.jpg','.png','.jpeg')))
+					{
+						// Name the files for the DB
+						$media_link = $new_filename.$file_type;
+						$media_medium = $new_filename.'_m'.$file_type;
+						$media_thumb = $new_filename.'_t'.$file_type;
+						
+						file_put_contents(Kohana::config('upload.directory', TRUE).$media_link, @file_get_contents($video_thumb));
+						
+						// IMAGE SIZES: 800X600, 400X300, 89X59
+						// Catch any errors from corrupt image files
+						try
+						{
+							// Medium size
+							Image::factory(Kohana::config('upload.directory', TRUE).$media_link)->resize(400,300,Image::HEIGHT)
+								->save(Kohana::config('upload.directory', TRUE).$media_medium);
+							
+							// Thumbnail
+							Image::factory(Kohana::config('upload.directory', TRUE).$media_link)->resize(89,59,Image::HEIGHT)
+								->save(Kohana::config('upload.directory', TRUE).$media_thumb);
+						}
+						catch (Exception $e)
+						{
+							// Do nothing. Too late to throw errors
+							// Set links to NULL
+							$media_medium = NULL;
+							$media_thumb = NULL;
+						}
+						
+						// Okay, now we have these three different files on the server, now check to see
+						//   if we should be dropping them on the CDN
+						
+						if (Kohana::config("cdn.cdn_store_dynamic_content"))
+						{
+							//$media_link = cdn::upload($media_link);
+							$media_medium = cdn::upload($media_medium);
+							$media_thumb = cdn::upload($media_thumb);
+							
+							// We no longer need the files we created on the server. Remove them.
+							$local_directory = rtrim(Kohana::config('upload.directory', TRUE), '/').'/';
+							//unlink($local_directory.$media_link);
+							unlink($local_directory.$media_medium);
+							unlink($local_directory.$media_thumb);
+						}
+						// Remove original image
+						unlink(Kohana::config('upload.directory', TRUE).$media_link);
+					}
+					
 					$video = new Media_Model();
 					$video->location_id = $incident->location_id;
 					$video->incident_id = $incident->id;
 					$video->media_type = 2;		// Video
 					$video->media_link = $item;
+					$video->media_thumb = $media_thumb;
+					$video->media_medium = $media_medium;
 					$video->media_date = date("Y-m-d H:i:s",time());
 					$video->save();
 				}
@@ -477,7 +527,12 @@ class reports_Core {
 			{
 				$new_filename = $incident->id.'_'.$i.'_'.time();
 
-				$file_type = strrev(substr(strrev($filename),0,4));
+				$file_type = substr($filename,-4);
+				
+				// Name the files for the DB
+				$media_link = $new_filename.$file_type;
+				$media_medium = $new_filename.'_m'.$file_type;
+				$media_thumb = $new_filename.'_t'.$file_type;
 				
 				// IMAGE SIZES: 800X600, 400X300, 89X59
 				// Catch any errors from corrupt image files
@@ -485,40 +540,53 @@ class reports_Core {
 				{
 					// Large size
 					Image::factory($filename)->resize(800,600,Image::AUTO)
-						->save(Kohana::config('upload.directory', TRUE).$new_filename.$file_type);
+						->save(Kohana::config('upload.directory', TRUE).$media_link);
 
 					// Medium size
 					Image::factory($filename)->resize(400,300,Image::HEIGHT)
-						->save(Kohana::config('upload.directory', TRUE).$new_filename.'_m'.$file_type);
+						->save(Kohana::config('upload.directory', TRUE).$media_medium);
 
 					// Thumbnail
 					Image::factory($filename)->resize(89,59,Image::HEIGHT)
-						->save(Kohana::config('upload.directory', TRUE).$new_filename.'_t'.$file_type);
+						->save(Kohana::config('upload.directory', TRUE).$media_thumb);
 				}
 				catch (Kohana_Exception $e)
 				{
 					// Do nothing. Too late to throw errors
+					$media_link = NULL;
+					$media_medium = NULL;
+					$media_thumb = NULL;
 				}
-				
-				// Name the files for the DB
-				$media_link = $new_filename.$file_type;
-				$media_medium = $new_filename.'_m'.$file_type;
-				$media_thumb = $new_filename.'_t'.$file_type;
 					
 				// Okay, now we have these three different files on the server, now check to see
 				//   if we should be dropping them on the CDN
 				
 				if (Kohana::config("cdn.cdn_store_dynamic_content"))
 				{
-					$media_link = cdn::upload($media_link);
-					$media_medium = cdn::upload($media_medium);
-					$media_thumb = cdn::upload($media_thumb);
+					$cdn_media_link = cdn::upload($media_link);
+					$cdn_media_medium = cdn::upload($media_medium);
+					$cdn_media_thumb = cdn::upload($media_thumb);
 					
 					// We no longer need the files we created on the server. Remove them.
 					$local_directory = rtrim(Kohana::config('upload.directory', TRUE), '/').'/';
-					unlink($local_directory.$new_filename.$file_type);
-					unlink($local_directory.$new_filename.'_m'.$file_type);
-					unlink($local_directory.$new_filename.'_t'.$file_type);
+					if (file_exists($local_directory.$media_link))
+					{
+						unlink($local_directory.$media_link);
+					}
+ 
+					if (file_exists($local_directory.$media_medium))
+					{
+						unlink($local_directory.$media_medium);
+					}
+ 
+					if (file_exists($local_directory.$media_thumb))
+					{
+						unlink($local_directory.$media_thumb);
+					}
+					
+					$media_link = $cdn_media_link;
+					$media_medium = $cdn_media_medium;
+					$media_thumb = $cdn_media_thumb;
 				}
 
 				// Remove the temporary file
@@ -720,7 +788,7 @@ class reports_Core {
 			//if $url_data['start_loc'] is just comma delimited strings, then make it into an array
 			if (intval($url_data['radius']) > 0 AND is_array($url_data['start_loc']))
 			{
-				$bounds = $url_data['start_loc'];			
+				$bounds = $url_data['start_loc'];
 				if (count($bounds) == 2 AND is_numeric($bounds[0]) AND is_numeric($bounds[1]))
 				{
 					self::$params['radius'] = array(
@@ -735,13 +803,21 @@ class reports_Core {
 		// 
 		// Check for incident date range parameters
 		// 
-		if (isset($url_data['from']) AND isset($url_data['to']))
+		if (!empty($url_data['from']))
 		{
-			$date_from = date('Y-m-d', strtotime($url_data['from']));
-			$date_to = date('Y-m-d', strtotime($url_data['to']));
+			// Add hours/mins/seconds so we still get reports if from and to are the same day
+			$date_from = date('Y-m-d 00:00:00', strtotime($url_data['from']));
 			
 			array_push(self::$params, 
-				'i.incident_date >= "'.$date_from.'"',
+				'i.incident_date >= "'.$date_from.'"'
+			);
+		}
+		if (!empty($url_data['to']))
+		{
+			// Add hours/mins/seconds so we still get reports if from and to are the same day
+			$date_to = date('Y-m-d 23:59:59', strtotime($url_data['to']));
+			
+			array_push(self::$params, 
 				'i.incident_date <= "'.$date_to.'"'
 			);
 		}

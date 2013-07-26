@@ -15,30 +15,28 @@
 		<div class="report-category-list">
 		<p>
 			<?php
-				foreach($incident_category as $category) 
+				foreach ($incident_category as $category)
 				{
-
 					// don't show hidden categoies
-					if($category->category->category_visible == 0)
+					if ($category->category->category_visible == 0)
 					{
 						continue;
 					}
-
-				  if ($category->category->category_image_thumb)
+					if ($category->category->category_image_thumb)
 					{
-					?>
-					  <!-- <?php echo url::site()."reports/?c=".$category->category->id; ?> -->
-					  <a href="#"><span class="r_cat-box" style="background:transparent url(<?php echo url::base().Kohana::config('upload.relative_directory')."/".$category->category->category_image_thumb; ?>) 0 0 no-repeat;">&nbsp;</span> <?php echo $category->category->category_title; ?></a>
-					
-					<?php 
+						$style = "background:transparent url(".url::convert_uploaded_to_abs($category->category->category_image_thumb).") 0 0 no-repeat";
 					}
 					else
 					{
+						$style = "background-color:#".$category->category->category_color;
+					}
+					
 					?>
-					  <!-- <?php echo url::site()."reports/?c=".$category->category->id; ?> -->
-					  <a href="#"><span class="r_cat-box" style="background-color:#<?php echo $category->category->category_color; ?>">&nbsp;</span> <?php echo $category->category->category_title; ?></a>
-				  <?php
-				  }
+					<a href="<?php echo url::site()."reports/?c=".$category->category->id; ?>" title="<?php echo Category_Lang_Model::category_description($category->category_id);; ?>">
+						<span class="r_cat-box" style="<?php echo $style ?>">&nbsp;</span>
+						<?php echo Category_Lang_Model::category_title($category->category_id); ?>
+					</a>
+					<?php 
 				}
 			?>
 			</p>
@@ -158,7 +156,7 @@
 	<div class="right-col">
     
      <div class="polaroid">
-		  <p class="picture"> <img style="width:100px; height:100px;" src="https://maps.google.com/maps/api/staticmap?center=<?php echo $incident_latitude.",".$incident_longitude; ?>&zoom=7&markers=size:mid|color:green|<?php echo $incident_latitude.",".$incident_longitude; ?>|<?php echo $incident_latitude.",".$incident_longitude; ?>&size=100x100&sensor=true&&style=visibility:off&style=feature:water|element:geometry|visibility:on|invert_lightness:true|hue:0x0088ff|saturation:-39&style=feature:administrative.country|visibility:on|hue:0xffa200|saturation:64&style=feature:administrative|element:labels|visibility:on|saturation:-15|hue:0x000000|lightness:58&style=feature:administrative.province|element:geometry|visibility:on|saturation:76|hue:0xddff00&style=feature:poi|element:geometry|visibility:on|hue:0x00bbff&style=feature:road|visibility:simplified|lightness:-4&style=feature:landscape.natural|visibility:on|hue:0xffc300|invert_lightness:true|lightness:87" /></p>
+		  <p class="picture"> <img style="width:100px; height:100px;" src="<?php echo Kohana::config('core.site_protocol'); ?>://maps.google.com/maps/api/staticmap?center=<?php echo $incident_latitude.",".$incident_longitude; ?>&zoom=7&markers=size:mid|color:green|<?php echo $incident_latitude.",".$incident_longitude; ?>|<?php echo $incident_latitude.",".$incident_longitude; ?>&size=100x100&sensor=true&&style=visibility:off&style=feature:water|element:geometry|visibility:on|invert_lightness:true|hue:0x0088ff|saturation:-39&style=feature:administrative.country|visibility:on|hue:0xffa200|saturation:64&style=feature:administrative|element:labels|visibility:on|saturation:-15|hue:0x000000|lightness:58&style=feature:administrative.province|element:geometry|visibility:on|saturation:76|hue:0xddff00&style=feature:poi|element:geometry|visibility:on|hue:0x00bbff&style=feature:road|visibility:simplified|lightness:-4&style=feature:landscape.natural|visibility:on|hue:0xffc300|invert_lightness:true|lightness:87" /></p>
       </div>
     
      <?php 

@@ -15,7 +15,7 @@
  * @license    http://www.gnu.org/copyleft/lesser.html GNU Lesser General Public License (LGPL) 
  */
 ?>
-	<?php @require_once(APPPATH.'views/map_common_js.php'); ?>
+	<?php @require(APPPATH.'views/map_common_js.php'); ?>
 	
 	// Tracks the current URL parameters
 	var urlParameters = <?php echo $url_params; ?>;
@@ -77,7 +77,7 @@
 			$("#tooltip-box").css({
 				'left': ($(this).offset().left - 80),
 				'top': ($(this).offset().right)
-			}).show();
+			}).toggle();
 			
 	        return false;
 		});
@@ -141,7 +141,8 @@
 			}
 			else if ($(this).attr("id") == 'dateRangeMonth')
 			{
-				d1 = new Date(d.setDate(32));
+				d1 = new Date(d);
+				d1.setDate(32);
 				lastMonthDay = 32 - d1.getDay();
 				
 				$("#report_date_from").val(month + '/01/' + d.getFullYear());
@@ -159,6 +160,7 @@
 			
 			// Hide the box
 			$("#tooltip-box").hide();
+			$("#tooltip-box a.filter-button").click();
 			
 			return false;
 		});
@@ -177,13 +179,26 @@
 			report_date_from = $("#report_date_from").val();
 			report_date_to = $("#report_date_to").val();
 			
-			if ($(this).attr("id") == "applyDateFilter" && report_date_from != '' && report_date_to != '')
+			if ($(this).attr("id") == "applyDateFilter")
 			{
-				// Add the parameters
-				urlParameters["from"] = report_date_from;
-				urlParameters["to"] = report_date_to;
+				// Clear existing filters
 				delete urlParameters['s'];
 				delete urlParameters['e'];
+				delete urlParameters['from'];
+				delete urlParameters['to'];
+				// Add from filter if set
+				if (report_date_from != '')
+				{
+					// Add the parameters
+					urlParameters["from"] = report_date_from;
+					urlParameters["to"] = report_date_to;
+				}
+				// Add to filter if set
+				if (report_date_to != '')
+				{
+					// Add the parameters
+					urlParameters["to"] = report_date_to;
+				}
 				
 				// Fetch the reports
 				fetchReports();
@@ -355,7 +370,6 @@
 	{
 		// Creates the map
 		map = createMap('rb_map-view', latitude, longitude, defaultZoom);
-		map.addControl( new OpenLayers.Control.LoadingPanel({minSize: new OpenLayers.Size(573, 366)}) );
 		
 		mapLoaded = 1;
 	}
@@ -478,7 +492,7 @@
 		addReportViewOptionsEvents();
 		
 		// Remove page links for the metadata pager
-		$("ul.pager a").attr("href", "#");
+		//$("ul.pager a").attr("href", "#");
 		
 		$("ul.pager a").click(function() {
 			// Add the clicked page to the url parameters
@@ -491,7 +505,7 @@
 		});
 		
 		$("td.last li a").click(function(){
-			pageNumber = $(this).attr("id").substr("page_".length);
+			pageNumber = $(this).attr("href").substr("#page_".length);
 			if (Number(pageNumber) > 0)
 			{
 				urlParameters["page"] = Number(pageNumber);
@@ -515,9 +529,9 @@
 		mapLoaded = 0;
 		
 		var loadingURL = "<?php echo url::file_loc('img').'media/img/loading_g.gif'; ?>";
-		var statusHtml = "<div style=\"width: 100%; margin-top: 100px;\" align=\"center\">" + 
+		var statusHtml = "<div class=\"loading-reports\">" + 
 					"<div><img src=\""+loadingURL+"\" border=\"0\"></div>" + 
-					"<p style=\"padding: 10px 2px;\"><h3><?php echo Kohana::lang('ui_main.loading_reports'); ?>...</h3></p>" +
+					"<h3><?php echo Kohana::lang('ui_main.loading_reports'); ?>...</h3>" +
 					"</div>";
 	
 		$("#reports-box").html(statusHtml);
@@ -747,6 +761,10 @@
 				delete urlParameters["cff"];
 			}
 			
+			<?php
+				// Action, allows plugins to add custom filters
+				Event::run('ushahidi_action.report_js_filterReportsAction');
+			?>
 			
 			// Fetch the reports
 			fetchReports();

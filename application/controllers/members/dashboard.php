@@ -97,12 +97,12 @@ class Dashboard_Controller extends Members_Controller {
 			'notify' => $this->user->notify,
 			'color' => $this->user->color,
 			'password' => '', // Don't set a new password from here
-			'needinfo' => 0 // After we save this form once, we don't need to show it again
+			'needinfo' => $this->user->needinfo // After we save this form once, we don't need to show it again
 		);
 
 		// Javascript Header
-		$this->template->protochart_enabled = TRUE;
-		$this->template->js = new View('admin/stats/stats_js');
+		$this->themes->protochart_enabled = TRUE;
+		$this->themes->js = new View('admin/stats/stats_js');
 
 		$this->template->content->failure = '';
 
@@ -110,8 +110,8 @@ class Dashboard_Controller extends Members_Controller {
 
 		// Set the date range (how many days in the past from today?)
 		// Default to one year if invalid or not set
-		$range = (isset($_GET['range']) AND preg_match('/^\d+$/', $_GET['range']) > 0)
-			? (int) $_GET['range']
+		$range = (!empty($_GET['range']))
+			? $_GET['range']
 			: 365;
 
 		// Phase 3 - Invoke Kohana's XSS cleaning mechanism just incase an outlier wasn't caught

@@ -41,7 +41,7 @@ class Settings_Controller extends Admin_Controller {
 	{
 		$this->template->content = new View('admin/settings/site');
 		$this->template->content->title = Kohana::lang('ui_admin.settings');
-		$this->template->js = new View('admin/settings/site_js');
+		$this->themes->js = new View('admin/settings/site_js');
 
 		// setup and initialize form field names
 		$form = array(
@@ -72,7 +72,6 @@ class Settings_Controller extends Admin_Controller {
 			'require_email_confirmation' => '',
 			'checkins' => '',
 			'google_analytics' => '',
-			'twitter_hashtags' => '',
 			'api_akismet' => ''
 		);
 		//	Copy the form as errors, so the errors will be stored with keys
@@ -99,7 +98,7 @@ class Settings_Controller extends Admin_Controller {
 			//$post->add_rules('alerts_email','required', 'email', 'length[4,100]');
 			//$post->add_rules('site_message', 'standard_text');
 			$post->add_rules('site_copyright_statement', 'length[4,600]');
-			$post->add_rules('site_language','required', 'length[5, 5]');
+			$post->add_rules('site_language','required', 'length[2, 5]');
 			//$post->add_rules('site_timezone','required', 'between[10,50]');
 			$post->add_rules('site_contact_page','required','between[0,1]');
 			$post->add_rules('items_per_page','required','between[5,50]');
@@ -117,12 +116,11 @@ class Settings_Controller extends Admin_Controller {
 			$post->add_rules('require_email_confirmation','required','between[0,1]');
 			$post->add_rules('checkins','required','between[0,1]');
 			$post->add_rules('google_analytics','length[0,20]');
-			$post->add_rules('twitter_hashtags','length[0,500]');
 			$post->add_rules('api_akismet','length[0,100]', 'alpha_numeric');
 
 			// Add rules for file upload
 			$files = Validation::factory($_FILES);
-			$files->add_rules('banner_image', 'upload::valid', 'upload::type[gif,jpg,png]', 'upload::size[250K]');
+			$files->add_rules('banner_image', 'upload::valid', 'upload::type[gif,jpg,jpeg,png]', 'upload::size[250K]');
 
 			// Test to see if things passed the rule checks
 			if ($post->validate() AND $files->validate(FALSE))
@@ -270,7 +268,6 @@ class Settings_Controller extends Admin_Controller {
 				'require_email_confirmation' => $settings['require_email_confirmation'],
 				'checkins' => $settings['checkins'],
 				'google_analytics' => $settings['google_analytics'],
-				'twitter_hashtags' => $settings['twitter_hashtags'],
 				'api_akismet' => $settings['api_akismet']
 			);
 		}
@@ -290,8 +287,8 @@ class Settings_Controller extends Admin_Controller {
 			$this->template->content->banner_t = NULL;
 		}
 
-
-		$this->template->colorpicker_enabled = TRUE;
+		$this->themes->colorpicker_enabled = TRUE;
+		$this->themes->slider_enabled = TRUE;
 		$this->template->content->form = $form;
 		$this->template->content->errors = $errors;
 		$this->template->content->form_error = $form_error;
@@ -341,7 +338,7 @@ class Settings_Controller extends Admin_Controller {
 	public function index($saved = false)
 	{
 		// Display all maps
-		$this->template->api_url = Kohana::config('settings.api_url_all');
+		$this->themes->api_url = Kohana::config('settings.api_url_all');
 
 		// Current Default Country
 		$current_country = Kohana::config('settings.default_country');
@@ -590,14 +587,14 @@ class Settings_Controller extends Admin_Controller {
 			'0'=>utf8::strtoupper(Kohana::lang('ui_main.no')));
 
 		// Javascript Header
-		$this->template->map_enabled = TRUE;
-		$this->template->colorpicker_enabled = TRUE;
-		$this->template->js = new View('admin/settings/settings_js');
-		$this->template->js->default_map = $form['default_map'];
-		$this->template->js->default_zoom = $form['default_zoom'];
-		$this->template->js->default_lat = $form['default_lat'];
-		$this->template->js->default_lon = $form['default_lon'];
-		$this->template->js->all_maps_json = $this->_generate_settings_map_js();
+		$this->themes->map_enabled = TRUE;
+		$this->themes->colorpicker_enabled = TRUE;
+		$this->themes->js = new View('admin/settings/settings_js');
+		$this->themes->js->default_map = $form['default_map'];
+		$this->themes->js->default_zoom = $form['default_zoom'];
+		$this->themes->js->default_lat = $form['default_lat'];
+		$this->themes->js->default_lon = $form['default_lon'];
+		$this->themes->js->all_maps_json = $this->_generate_settings_map_js();
 	}
 
 
@@ -787,7 +784,7 @@ class Settings_Controller extends Admin_Controller {
 		$this->template->content->email_ssl_array = array('1'=>Kohana::lang('ui_admin.yes'),'0'=>Kohana::lang('ui_admin.no'));
 
 		// Javascript Header
-		$this->template->js = new View('admin/settings/email_js');
+		$this->themes->js = new View('admin/settings/email_js');
 	}
 
 		/**
@@ -972,7 +969,6 @@ class Settings_Controller extends Admin_Controller {
 		$this->template->content->is_https_capable = $this->_is_https_capable();
 	}
 
-
 	/**
 	 * Retrieves cities listing using GeoNames Service
 	 *
@@ -1001,103 +997,83 @@ class Settings_Controller extends Admin_Controller {
 
 		if ($country->loaded)
 		{
-			$iso = strtoupper($country->iso);
+			$base_url = "http://overpass-api.de/api/";
 
-			// Base URL for the Geonames API endpoint
-			$base_url = "http://api.geonames.org/";
+			// Get the cities within the country info
+			// Limited to 1000 items to avoid query time out
+			/* This URL runs an Overpass API request using OverpassQL similar to:
+				[out:json][timeout:300];
+				area["admin_level"="2"]["name:en"~"^Germany"];
+				(
+				  node["place"="city"](area);
+				);
+				out body 1000;
+			*/
+			$cities_url = $base_url . "interpreter?data=" .
+			urlencode(
+				'[out:json][timeout:300];area["admin_level"="2"]["name:en"~"^'.$country->country.'"];(node["place"="city"](area););out body 1000;'
+			);
 
-			// Get the country info
-			$country_url = $base_url."countryInfoJSON?country=%s&username=ushahididev";
-
-			$client = new HttpClient(sprintf($country_url, $iso));
-			if (($response = $client->execute()) !== FALSE)
+			// Fetch the cities
+			$cities_client = new HttpClient($cities_url, 300);
+			if (($response = $cities_client->execute()) !== FALSE)
 			{
-				// Decode the JSON
-				$response = json_decode($response, TRUE);
+				// Decode the JSON responce
+				$response = json_decode($response);
+				
+				$cities = isset($response->elements) 
+				    ? $response->elements
+				    : array();
 
-				// Geonames returned an error
-				if ( ! array_key_exists('geonames', $response))
+				// Only proceed if cities are returned
+				if (count($cities) > 0)
 				{
-					echo json_encode($status_response);
-					exit;
-				}
+					// Set the city count for the country
+					$country->cities = count($cities);
+					$country->save();
 
-				// Get the south,east, north and west bounds
-				$country_info = $response['geonames'][0];
+					// Delete all the cities for the current country
+					ORM::factory('city')
+					    ->where('country_id', $country->id)
+					    ->delete_all();
 
-				// Fetch the city names
+					// Manually construct the query (DB library can't do bulk inserts)
+					$query = sprintf("INSERT INTO %scity (`country_id`, `city`, `city_lat`, `city_lon`) VALUES ", $this->table_prefix);
 
-				// 
-				// TODO: EK <emmanuel(at)ushahidi.com
-				// The maximum no. of cities + the geonames username
-				// should be configurable parameters. Right now, I've set the upper
-				// limit for the cities to 1000
-				// 
-				$cities_url = $base_url."citiesJSON?north=%s&south=%s&east=%s&west=%s&username=ushahididev&maxRows=1000";
+					$values = array();
+					// Create a database expression and use that to sanitize values
+					$values_expr = new Database_Expression("(:countryid, :city, :lat, :lon)");
 
-				// Add the bounding box values
-				$cities_url = sprintf($cities_url, $country_info['north'], $country_info['south'],
-				    $country_info['east'], $country_info['west']);
-
-				// Fetch the cities
-				$cities_client = new HttpClient($cities_url);
-				if (($response = $cities_client->execute()) !== FALSE)
-				{
-					// Decode the JSON response
-					$response = json_decode($response, TRUE);
-
-					$cities = array_key_exists('geonames', $response) 
-					    ? $response['geonames']
-					    : array();
-
-					// Only proceed if cities are returned
-					if (count($cities) > 0)
+					// Add the freshly fetched cities
+					foreach ($cities as $city)
 					{
-						// Set the city count for the country
-						$country->cities = count($cities);
-						$country->save();
-
-						// Delete all the cities for the current country
-						ORM::factory('city')
-						    ->where('country_id', $country->id)
-						    ->delete_all();
-
-						 $query = sprintf("INSERT INTO %scity (`country_id`, `city`, `city_lat`, `city_lon`) VALUES ", 
-						     $this->table_prefix);
-
-						 $values = array();
-						 $values_template = "(%d, '%s', %s, %s)";
-
-						// Add the freshly fetched cities
-						foreach ($cities as $city)
-						{
-							$values[] = sprintf($values_template, $country->id, 
-							    $city['name'], $city['lat'], $city['lng']);
-						}
-
-						$query .= implode(",", $values);
-
-						// Batch insert
-						Database::instance()->query($query);
-
-						$entries = count($cities);
+						// Skip nameless nodes or nodes with lat/lon
+						if (!isset($city->tags->name) OR ! $city->lat OR ! $city->lon) continue;
+						
+						$values_expr->param(':countryid', $country->id);
+						$values_expr->param(':city', $city->tags->name);
+						$values_expr->param(':lat', $city->lat);
+						$values_expr->param(':lon', $city->lon);
+						$values[] = $values_expr->compile();
 					}
 
-					// Set the response payload
-					$status_response['status'] = "success";
-					$status_response['response'] = sprintf("%d %s", $entries,
-					    Kohana::lang('ui_admin.cities_loaded'));
+					$query .= implode(",", $values);
+
+					// Batch insert
+					Database::instance()->query($query);
+
+					$entries = count($cities);
 				}
-				else
-				{
-					// Geonames timed out
-					$status_response['response'] = Kohana::lang('ui_admin.geonames_timeout');
-				}
+
+				// Set the response payload
+				$status_response['status'] = "success";
+				$status_response['response'] = sprintf("%d %s", $entries,
+				    Kohana::lang('ui_admin.cities_loaded'));
 			}
 			else
 			{
 				// Geonames timeout
-				$status_response['response'] = Kohana::lang('ui_admin.geonames_timeout');
+				$status_response['response'] = Kohana::lang('ui_admin.timeout');
 			}
 		}
 

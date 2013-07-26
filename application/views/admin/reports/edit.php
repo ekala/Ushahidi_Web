@@ -102,6 +102,7 @@
 							</div>
 							<div class="row">
 								<h4><?php echo Kohana::lang('ui_main.description');?> <span><?php echo Kohana::lang('ui_main.include_detail');?>.</span> <span class="required">*</span></h4>
+								<span class="allowed-html"><?php echo html::allowed_html(); ?></span>
 								<?php print form::textarea('incident_description', $form['incident_description'], ' rows="12" cols="40"') ?>
 							</div>
 
@@ -153,7 +154,9 @@
 									?>
 								</div>
 							</div>
+							<div class="row">
 							<?php Event::run('ushahidi_action.report_form_admin_after_time', $id); ?>
+							</div>
 							<div class="row">
 								<h4><a href="#" id="category_toggle" class="new-cat"><?php echo Kohana::lang('ui_main.new_category');?></a><?php echo Kohana::lang('ui_main.categories');?> 
 								<span><?php echo Kohana::lang('ui_main.select_multiple');?>.</span>  <span class="required">*</span></h4>
@@ -188,7 +191,7 @@
 										$selected_categories = $form['incident_category'];
 									}
 									$columns = 2;
-									echo category::tree($categories, FALSE, $selected_categories, 'incident_category', $columns);
+									echo category::form_tree('incident_category', $selected_categories, $columns, FALSE, TRUE);
 								?>
            						</div>
 							</div>
@@ -207,11 +210,11 @@
 									<?php print form::input('longitude', $form['longitude'], ' class="text"'); ?>
 								</div>
 								<ul class="map-toggles">
-						          <li><a href="#" class="smaller-map">Smaller map</a></li>
-						          <li style="display:block;"><a href="#" class="wider-map">Wider map</a></li>
-						          <li><a href="#" class="taller-map">Taller map</a></li>
-						          <li><a href="#" class="shorter-map">Shorter Map</a></li>
-						        </ul>
+									<li><a href="#" class="smaller-map"><?php echo Kohana::lang('ui_main.smaller_map'); ?></a></li>
+									<li style="display:block;"><a href="#" class="wider-map"><?php echo Kohana::lang('ui_main.wider_map'); ?></a></li>
+									<li><a href="#" class="taller-map"><?php echo Kohana::lang('ui_main.taller_map'); ?></a></li>
+									<li><a href="#" class="shorter-map"><?php echo Kohana::lang('ui_main.shorter_map'); ?></a></li>
+								</ul>
 								<div id="divMap" class="map_holder_reports">
 									<div id="geometryLabelerHolder" class="olControlNoSelect">
 										<div id="geometryLabeler">

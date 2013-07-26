@@ -148,9 +148,9 @@ class Category_Model extends ORM_Tree {
 			}
 		}
 		
-		if ($category_id AND isset(self::$categories[$category_id]))
+		if ($category_id)
 		{
-			return array($category_id => self::$categories[$category_id]);
+			return isset(self::$categories[$category_id]) ? array($category_id => self::$categories[$category_id]) : FALSE;
 		}
 		
 		return self::$categories;
@@ -177,32 +177,58 @@ class Category_Model extends ORM_Tree {
 	 * @param int $parent_id
 	 * @return ORM_Iterator
 	 */
-	public static function get_categories($parent_id = 0, $exclude_trusted = TRUE, $exclude_hidden = TRUE)
+	public static function get_categories($parent_id = FALSE, $exclude_trusted = TRUE, $exclude_hidden = TRUE)
 	{
-		// Check if the specified parent is valid
-		$where = (intval($parent_id) > 0 AND self::is_valid_category($parent_id))
-			? array('parent_id' => $parent_id)
-			: array('parent_id' => 0);
+		
+		$where = array();
+		//a little hack to work around the way ORM handles table prefixes
+		//it seems that when you use "JOIN table_name as table_alias ON other_table.id = table_alias.id"
+		//with a database that uses prefixes, that ORM adds the prefix to "table_alias" so that you get
+		//"JOIN table_name as table_alias ON other_table.id = prefix_table_alias.id"
+		//so I added the the table prefix to the ORM code.
+		//This should be properly fixed by the good people at Kohana. Might even be fixed in Kohana 3.x
+		$table_prefix = Kohana::config('database.default.table_prefix');
+		$categories = ORM::factory('category')
+			->join('category AS '.$table_prefix.'c_parent','category.parent_id','c_parent.id','LEFT')
+				->orderby('category.parent_id', 'ASC')
+				->orderby('category.category_position', 'ASC')
+				->orderby('category.category_title', 'ASC');
+		
+		// Check if the parent is specified, if FALSE get everything
+		if ($parent_id !== FALSE)
+		{
+			// top level
+			if ($parent_id === 0)
+			{
+				$categories->where('category.parent_id', 0);
+			}
+			// valid parent
+			elseif (self::is_valid_category($parent_id))
+			{
+				$categories->where('category.parent_id', $parent_id);
+			}
+			// invalid parent
+			else
+			{
+				// Force no results, but still returning an ORM_Iterator
+				$categories->where('1 = 0');
+			}
+		}
 			
 		// Make sure the category is visible
 		if ($exclude_hidden)
 		{
-			$where = array_merge($where, array('category_visible' =>'1'));
+			$categories->where('category.category_visible', '1');
+			$categories->where('(c_parent.category_visible = 1 OR c_parent.id IS NULL)');
 		}
 		
 		// Exclude trusted reports
 		if ($exclude_trusted)
 		{
-			$where = array_merge($where, array('category_trusted !=' => '1'));
+			$categories->where('category.category_trusted !=', '1');
 		}
 		
-		// Return
-		return ORM::factory('category')
-			->where($where)
-			->where('category_title != "NONE"')
-			->orderby('category_position', 'ASC')
-			->orderby('category_title', 'ASC')
-			->find_all();
+		return $categories->find_all();
 	}
 	
 	/**
@@ -214,9 +240,49 @@ class Category_Model extends ORM_Tree {
 		
 		$table_prefix = Kohana::config('database.default.table_prefix');
 		
-		Database::instance()->query('UPDATE `'.$table_prefix.'category_lang` SET category_title = ?, category_description = ? WHERE category_id = ? AND locale = ?',
+		$this->db->query('UPDATE `'.$table_prefix.'category_lang` SET category_title = ?, category_description = ? WHERE category_id = ? AND locale = ?',
 			$this->category_title, $this->category_description, $this->id, $this->locale
 		);
+	}
+	
+	/**
+	 * Extend the default ORM delete to remove related records
+	 */
+	public function delete()
+	{
+		$table_prefix = Kohana::config('database.default.table_prefix');
+		
+		// Delete category_lang entries
+		ORM::factory('category_lang')
+			->where('category_id', $this->id)
+			->delete_all();
+		
+		// Update subcategories tied to this category and make them top level
+		$this->db->query(
+			'UPDATE `'.$table_prefix.'category` SET parent_id = 0 WHERE parent_id = :category_id',
+			array(':category_id' => $this->id)
+		);
+		
+		// Unapprove all reports tied to this category only (not to multiple categories)
+		$this->db->query(
+			'UPDATE `'.$table_prefix.'incident`
+				SET incident_active = 0
+				WHERE
+					id IN (SELECT incident_id FROM `'.$table_prefix.'incident_category` WHERE category_id = :category_id)
+				AND
+					id NOT IN (SELECT DISTINCT incident_id FROM `'.$table_prefix.'incident_category` WHERE category_id != :category_id)
+			',
+			array(':category_id' => $this->id)
+		);
+
+		// Delete all incident_category entries
+		$result = ORM::factory('incident_category')
+					->where('category_id',$this->id)
+					->delete_all();
+		
+		// @todo Delete the category image
+		
+		parent::delete();
 	}
 
 	

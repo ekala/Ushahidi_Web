@@ -55,35 +55,35 @@ class Stats_Model extends ORM {
 				{
 					$slashornoslash = '/';
 				}
-				
+
 				// URL
-				$val = 'http://'.$_SERVER["HTTP_HOST"].$slashornoslash.$site_domain;
+				$val = url::base();
 				$additional_query = '&val='.base64_encode($val);
-				
+
 				// Site Name
-				$site_name = utf8tohtml::convert(Kohana::config('settings.site_name'),TRUE);
+				$site_name = html::escape(Kohana::config('settings.site_name'));
 				$additional_query .= '&sitename='.base64_encode($site_name);
-				
+
 				// Version
 				$version = Kohana::config('settings.ushahidi_version');
 				$additional_query .= '&version='.base64_encode($version);
-				
+
 				// Report Count
 				$number_reports = ORM::factory("incident")->where("incident_active", 1)->count_all();
 				$additional_query .= '&reports='.base64_encode($number_reports);
-				
+
 				// Latitude
 				$latitude = Kohana::config('settings.default_lat');
 				$additional_query .= '&lat='.base64_encode($latitude);
-				
+
 				// Longitude
 				$longitude = Kohana::config('settings.default_lon');
 				$additional_query .= '&lon='.base64_encode($longitude);
 			}
 
-			$url = 'https://tracker.ushahidi.com/dev.px.php?task=tc&siteid='.$stat_id.$additional_query;
+			$url = Kohana::config('config.external_site_protocol').'://tracker.ushahidi.com/dev.px.php?task=tc&siteid='.$stat_id.$additional_query;
 			$curl_handle = curl_init();
-			
+
 			// cURL options
 			$curl_options = array(
 				CURLOPT_URL => $url,
@@ -109,11 +109,23 @@ class Stats_Model extends ORM {
 			catch (Exception $e)
 			{
 				// In case the xml was malformed for whatever reason, we will just guess what the tag should be here
-				$tag = '<!-- Piwik --><script type="text/javascript">jQuery(document).ready(function(){$(\'#piwik\').load(\'https://tracker.ushahidi.com/piwik/piwik.php?idsite='.$stat_id.'&rec=1\');});</script><div id="piwik"></div><!-- End Piwik Tag -->';
+				$tag = <<< STATSCOLLECTOR
+					<!-- Stats Collector -->
+					<script type="text/javascript">
+					setTimeout(function() {
+						var statsCollector = document.createElement('img');
+						    statsCollector.src = document.location.protocol + "//tracker.ushahidi.com/piwik/piwik.php?idsite={$stat_id}&rec=1";
+						    statsCollector.style.cssText = "width: 1px; height: 1px; opacity: 0.1;";
+
+						document.body.appendChild(statsCollector);
+					}, 100);
+					</script>
+					<!-- End Stats Collector -->
+STATSCOLLECTOR;
 			}
 
 			// Reset Cache Here
-			$cache->set(Kohana::config('settings.subdomain').'_piwiktag', $tag, array('piwiktag'), 60); // 1 Day
+			$cache->set(Kohana::config('settings.subdomain').'_piwiktag', $tag, array('piwiktag'), 86400); // 1 Day
 		}
 
 		return $tag;
@@ -136,7 +148,7 @@ class Stats_Model extends ORM {
 			$twodates = '&twodates='.urlencode($dp1.','.$dp2);
 		}
 
-		$stat_url = 'https://tracker.ushahidi.com/px.php?stat_key='.$stat_key
+		$stat_url = Kohana::config('config.external_site_protocol').'://tracker.ushahidi.com/px.php?stat_key='.$stat_key
 		    .'&task=stats&siteid='.urlencode($stat_id).'&period=day&range='.urlencode($range).$twodates;
 
 		// Ignore errors since we are error checking later
@@ -205,7 +217,7 @@ class Stats_Model extends ORM {
 			$twodates = '&twodates='.urlencode($dp1.','.$dp2);
 		}
 
-		$stat_url = 'https://tracker.ushahidi.com/px.php?stat_key='.$stat_key
+		$stat_url = Kohana::config('config.external_site_protocol').'://tracker.ushahidi.com/px.php?stat_key='.$stat_key
 		    .'&task=stats&siteid='.urlencode($stat_id).'&period=day&range='.urlencode($range).$twodates;
 
 		// Ignore errors since we are error checking later
@@ -234,7 +246,7 @@ class Stats_Model extends ORM {
 				$data[$date][$code]['label'] = (string) $row->label;
 				$data[$date][$code]['uniques'] = (string) $row->nb_uniq_visitors;
 				$logo = (string) $row->logo;
-				$data[$date][$code]['logo'] = 'https://tracker.ushahidi.com/piwik/'.$logo;
+				$data[$date][$code]['logo'] = Kohana::config('core.site_protocol').'://tracker.ushahidi.com/piwik/'.$logo;
 			}
 		}
 
@@ -501,7 +513,7 @@ class Stats_Model extends ORM {
 	 */
 	public function create_site( $sitename, $url)
 	{
-		$stat_url = 'https://tracker.ushahidi.com/px.php?task=cs&sitename='.urlencode($sitename).'&url='.urlencode($url);
+		$stat_url = Kohana::config('config.external_site_protocol').'://tracker.ushahidi.com/px.php?task=cs&sitename='.urlencode($sitename).'&url='.urlencode($url);
 
 		// Ignore errors since we are error checking later
 

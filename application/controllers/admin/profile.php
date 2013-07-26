@@ -62,9 +62,10 @@ class Profile_Controller extends Admin_Controller
             // If Password field is not blank
             if ( ! empty($post->new_password))
             {
-                $post->add_rules('new_password','required','length[5,30]','alpha_numeric','matches[password_again]');
+                $post->add_rules('new_password','required','length[5,30]','alpha_dash','matches[password_again]');
             }
-
+		//for plugins that'd like to know what the user has to say about their profile
+		Event::run('ushahidi_action.profile_add_admin', $post);
 			if ($post->validate())
 			{
 				$user = ORM::factory('user',$this->user_id);
@@ -78,6 +79,11 @@ class Profile_Controller extends Admin_Controller
                         $user->password = $post->new_password;
                     }
 					$user->save();
+					
+					
+					
+					Event::run('ushahidi_action.profile_edit', $user);
+						
 
 	                // We also need to update the RiverID server with the new password if
 	                //    we are using RiverID and a password is being passed

@@ -294,13 +294,20 @@
 	  * detectMapZoom - {Boolean} Whether to detect change in the zoom level. If the
 	  *                 redrawOnZoom property is true, this option is ignored
 	  * mapControls - {Array(OpenLayers.Control)} The list of controls to add to the map
+	  * reportFilters - Initial report filters to be passed in URL
 	  */
 	 Ushahidi.Map = function(div, config) {
-	 	// Internal registry for the maker layers
+	 	// Internal registry for the marker layers
 	 	this._registry = [];
+	 	
+	 	// Internal list of layers to keep at the top
+	 	this._onTop = [];
 
 	 	// Markers are not yet loaded on the map
 	 	this._isLoaded = 0;
+
+	 	// Timeouts for layers about to be loaded, keyed by layer name
+	 	this._addLayerTimeouts = {};
 
 	 	// List of supported events
 	 	this._EVENTS = [
@@ -326,10 +333,6 @@
 	 	    "mapcenterchanged"
 	 	];
 
-	 	// The set of filters/parameters to pass to the URL that fetches
-	 	// overlay data - not applicable to KMLs
-	 	this._reportFilters = {};
-
 	 	// Register for the callbacks to be invoked when the report filters
 	 	// are updated. The updated paramters will passed to the callback
 	 	// as a parameter
@@ -350,6 +353,10 @@
 	 	// Internally track the current zoom
 	 	this.currentZoom = config.zoom;
 
+	 	// The set of filters/parameters to pass to the URL that fetches
+	 	// overlay data - not applicable to KMLs
+	 	this._reportFilters = config.reportFilters || {};
+
 	 	// Update the report filters with the zoom level
 	 	this._reportFilters.z = config.zoom;
 
@@ -369,32 +376,33 @@
 			'displayProjection': Ushahidi.proj_4326,
 			maxExtent: new OpenLayers.Bounds(-20037508.34, -20037508.34, 
 			                                 20037508.34, 20037508.34),
-			maxResolution: 156543.0339
+			maxResolution: 156543.0339,
+			// Shrink the popup padding so popups don't land under zoom control
+			paddingForPopups: new OpenLayers.Bounds(40,15,15,15),
+			eventListeners: { 
+				// Trigger keepOnTop fn whenever new layers are added
+				addlayer: this.keepOnTop,
+				scope: this
+			}
 		};
 
 		// Are the layers to be redrawn on zoom change
 		if (config.redrawOnZoom !== undefined && config.redrawOnZoom) {
-			mapOptions.eventListeners = {
-				"zoomend": this.refresh,
-				scope: this
-			};
+			mapOptions.eventListeners.zoomend = this.refresh;
 		}
 
 		// Zoom detection is enabled and redrawOnZoom has not been specified or is false
 		if ((config.redrawOnZoom == undefined || !config.redrawOnZoom) && config.detectMapZoom) {
 			this.register("zoomchanged", this.updateZoom, this);
-			mapOptions.eventListeners = {
-				"zoomend": this.triggerZoomChanged,
-				scope: this
-			};
+			mapOptions.eventListeners.zoomend = this.triggerZoomChanged;
 		}
 
 		// Check for the controls to add to the map
 		if (config.mapControls == undefined) {
 			// Default map controls
 			mapOptions.controls = [
-				new OpenLayers.Control.Navigation(),
-				new OpenLayers.Control.PanZoomBar(),
+				new OpenLayers.Control.Navigation({ dragPanOptions: { enableKinetic: true } }),
+				new OpenLayers.Control.Zoom(),
 				new OpenLayers.Control.Attribution(),
 				new OpenLayers.Control.MousePosition(),
 				new OpenLayers.Control.LayerSwitcher()
@@ -452,31 +460,23 @@
 	 * name - {String} Name of the Layer being added
 	 * url  - {String} Fetch URL for the layer data
 	 * styleMap - {OpenLayers.StyleMap} Styling for the layer
-	 * callback - {Function} Callback function to preprocess the data returned by
-	 *            the url When the callback is specified, the protocol property
-	 *            is omitted from the options passed to the layer constructor. The
-	 *             features property is used instead
 	 * detectMapClicks - {Boolean} - When true, registers a callback function to detect
 	 *               click events on the map. This option is only used with the default
 	 *               layer (Ushahidi.DEFAULT). The default value is true
 	 * transform - {Boolean} When true, transforms the featur geometry to spherical mercator
 	 *             The default value is false
+	 * features - {Array(OpenLayers.Feature.Vector)} Features to add to the layer 
+	 *            When the features ar specified, the protocol property is omitted from the
+	 *            options passed to the layer constructor. The features property is used instead
 	 *
 	 * save -      {bool} Whether to save the layer in the internal registry of Ushahidi.Map This
 	 *             parameter should be set to true, if the layer being added is new so as to ensure
-	 *             that it is redrawn when the map is zoomed in/out or the report filters are updated     
+	 *             that it is redrawn when the map is zoomed in/out or the report filters are updated   
+	 * keepOnTop - {bool} Whether to keep this layer above others.
 	 */
-	Ushahidi.Map.prototype.addLayer = function(layerType, options, save) {
-
-		var protocolFormat = new OpenLayers.Format.GeoJSON();
-
-		if (layerType == Ushahidi.KML) {
-			protocolFormat = new OpenLayers.Format.KML({
-				extractStyles: true,
-				extractAttributes: true,
-				maxDepth: 5
-			});
-		} else if (layerType == Ushahidi.DEFAULT) {
+	Ushahidi.Map.prototype.addLayer = function(layerType, options, save, keepOnTop) {
+		// Default markers layer
+		if (layerType == Ushahidi.DEFAULT) {
 			this.deleteLayer("default");
 			
 			var markers = null;
@@ -528,6 +528,17 @@
 
 			return this;
 		}
+		
+		// Setup default protocol format
+		var protocolFormat = new OpenLayers.Format.GeoJSON();
+		// Switch protocol format if layer is KML
+		if (layerType == Ushahidi.KML) {
+			protocolFormat = new OpenLayers.Format.KML({
+				extractStyles: true,
+				extractAttributes: true,
+				maxDepth: 5
+			});
+		}
 
 		// No options defined - where layerType !== Ushahidi.DEFAULT
 		if (options == undefined) {
@@ -539,6 +550,11 @@
 			this._registry.push({layerType: layerType, options: options});
 		}
 
+		// Save the layer name to keep on top
+		if (keepOnTop !== undefined && keepOnTop) {
+			this._onTop.push(options.name);
+		}
+
 		// Transform feature geometry to Spherical Mercator
 		preFeatureInsert = function(feature) {
 			if (feature.geometry) {
@@ -548,10 +564,6 @@
 				feature.geometry.y = point.y;
 			}
 		}
-
-		// Layer names should be unique, therefore delete any
-		// existing layer that has the same name as the one being added
-		this.deleteLayer(options.name);
 
 		// Layer options
 		var layerOptions = {
@@ -578,8 +590,19 @@
 				params.push(_key + '=' + this._reportFilters[_key]);
 			}
 
-			// Update the fetch URL witht parameters
+			if (fetchURL.indexOf("?") !== -1) {
+				var index = fetchURL.indexOf("?");
+				var args = fetchURL.substr(index+1, fetchURL.length).split("&");
+				fetchURL = fetchURL.substring(0, index);
+
+				for (var i=0; i<args.length; i++) {
+					params.push(args[i]);
+				}
+			}
+
+			// Update the fetch URL with parameters
 			fetchURL += (params.length > 0) ? '?' + params.join('&') : '';
+
 			// Get the styling to use
 			var styleMap = null;
 			if (options.styleMap !== undefined) {
@@ -596,21 +619,9 @@
 			layerOptions.styleMap = styleMap;
 		}
 
-		// Is there a callback for the data
-		var layerFeatures = [];
-		if (options.callback !== undefined) {
-			$.ajax({
-				url: fetchURL,
-				async: false,
-				success: function(response) {
-					var jsonFormat = new OpenLayers.Format.JSON();
-					var jsonStr = jsonFormat.write(options.callback(response));
-					var format = new OpenLayers.Format.GeoJSON();
-					layerFeatures = format.read(jsonStr);
-				},
-				dataType: "json"
-			});
-		} else {
+		// If no features were passed in layer options,
+		// set up protocal and strategy to grab GeoJSON
+		if (options.features === undefined) {
 			layerOptions.strategies = [new OpenLayers.Strategy.Fixed({preload: true})];
 
 			// Set the protocol
@@ -622,23 +633,62 @@
 
 		// Create the layer
 		var layer = new OpenLayers.Layer.Vector(options.name, layerOptions);
-		if (layerFeatures !== null && layerFeatures.length > 0) {
-			layer.addFeatures(layerFeatures);
+		
+		// Store context for callbacks
+		var context = this;
+		
+		// Hide the layer until its loaded
+		// only delete the old layer on loadend
+		layer.display(false);
+		// Hack to start with opacity 0 then fade in
+		layer.div.style['opacity'] = 0;
+		var oldLayer = this._olMap.getLayersByName(options.name);
+		var displayLayer = function () {
+			// Delete the old layers
+			this.deleteLayer(oldLayer);
+			// Display the new layer, fading in if we've got CSS3
+			layer.display(true);
+			layer.div.className += " olVectorLayerDiv";
+			layer.div.style['opacity'] = 1;
+
+			// Update / Create SelectFeature Control
+			if (typeof this._selectControl == "object")
+			{
+				// Update SelectFeature control with all vector layers
+				this._selectControl.setLayer(this._olMap.getLayersByClass("OpenLayers.Layer.Vector"));
+			}
+			else
+			{
+				// Select Feature control
+				this._selectControl = new OpenLayers.Control.SelectFeature(
+					this._olMap.getLayersByClass("OpenLayers.Layer.Vector"),
+					{ clickout: true, toggle: false, multiple: false, hover: false }
+				);
+				this._olMap.addControl(this._selectControl);
+				this._selectControl.activate();
+			}
+			
+			// Bind popup events for select/unselect
+			layer.events.on({
+				"featureselected": this.onFeatureSelect,
+				"featureunselected": this.onFeatureUnselect,
+				scope: this
+			});
+		}
+		// Register display layer fn to run on load end
+		layer.events.register('loadend', this, displayLayer);
+		
+		// If features were passed in layer options
+		// Add features to layer and register display layer on layer added
+		if (options.features !== undefined && options.features.length > 0) {
+			layer.addFeatures(options.features);
+			layer.events.register('added', this, displayLayer);
 		}
 
 		// Add the layer to the map
-		var context = this;
-		setTimeout(function(){ context._olMap.addLayer(layer); }, 1500);
-
-		// Select Feature control
-		this._selectControl = new OpenLayers.Control.SelectFeature(layer);
-		this._olMap.addControl(this._selectControl);
-		this._selectControl.activate();
-		layer.events.on({
-			"featureselected": this.onFeatureSelect,
-			"featureunselected": this.onFeatureUnselect,
-			scope: this
-		});
+		// We do this after a delay in case someone zooms multiple times
+		clearTimeout(this._addLayerTimeouts[options.name]);
+		this._addLayerTimeouts[options.name] = setTimeout(function(){ context._olMap.addLayer(layer); }, 100);
 
 		this._isLoaded = 1;
 
@@ -851,7 +901,8 @@
 		var zoomLevel = data.zoomFactor + data.context._olMap.getZoom();
 
 		// Center and zoom
-		data.context._olMap.setCenter(point, zoomLevel);
+		data.context._olMap.zoomTo(zoomLevel);
+		data.context._olMap.panTo(point);
 
 		// Close any open popups
 		data.context.closePopups();
@@ -934,8 +985,17 @@
 	 * name - {String} Name of the layer to be deleted
 	 */
 	Ushahidi.Map.prototype.deleteLayer = function(name) {
-		var layers = this._olMap.getLayersByName(name);
+		var layers = name;
+		if (typeof name === 'string')
+			layers = this._olMap.getLayersByName(name);
+		
 		for (var i=0; i < layers.length; i++) {
+			// Set opacity to 0 then hide, using CSS3 transitions to fade the layer out
+			layers[i].div.style['opacity'] = 0.2;
+			layers[i].display(false);
+			// Skip layer if its not on the map
+			if (layers[i].map == null || this._olMap.getLayerIndex(layers[i]) == -1) continue;
+			
 			this._olMap.removeLayer(layers[i]);
 			if (layers[i].destroyFeatures !== undefined)
 				layers[i].destroyFeatures();
@@ -1069,7 +1129,7 @@
 	Ushahidi.Map.prototype.updateMapCenter = function(center) {
 		var point = new OpenLayers.LonLat(center.longitude, center.latitude);
 		point.transform(Ushahidi.proj_4326, Ushahidi.proj_900913);
-		this._olMap.setCenter(point);
+		this._olMap.panTo(point);
 
 		// Re-add the default layer
 		this.addLayer(Ushahidi.DEFAULT);
@@ -1094,6 +1154,21 @@
 			// The assumption here is that this method is only called
 			// when we're using the default layer
 			this.addLayer(Ushahidi.DEFAULT);
+		}
+	}
+	
+	/**
+	 * APIMethod: keepOnTop
+	 * Forces specified layer(s) to the top of the stack
+	 */
+	Ushahidi.Map.prototype.keepOnTop = function(layer) {
+		for (var i=0; i<this._onTop.length; i++) {
+			var layerName = this._onTop[i];
+			var layers = this._olMap.getLayersByName(layerName);
+			
+			for (var j=0; j<layers.length; j++) {
+				this._olMap.raiseLayer(layers[j], this._olMap.getNumLayers());
+			}
 		}
 	}
 

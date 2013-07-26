@@ -85,7 +85,7 @@
 			<?php echo map::layers_js(FALSE); ?>
 			map.addLayers(<?php echo map::layers_array(FALSE); ?>);
 			map.addControl(new OpenLayers.Control.Navigation());
-			map.addControl(new OpenLayers.Control.PanZoomBar());
+			map.addControl(new OpenLayers.Control.Zoom());
 			map.addControl(new OpenLayers.Control.MousePosition());
 			map.addControl(new OpenLayers.Control.ScaleLine());
 			map.addControl(new OpenLayers.Control.Scale('mapScale'));
@@ -240,6 +240,24 @@
 			highlightCtrl.activate();
 			selectCtrl.activate();
 			
+			/**
+			 * Hack to make sure selectControl always works 
+			 *
+			 * Override navigation activate/deactive to also activate/deactive
+			 * the selectCtrl. Previously selectCtrl was not being re-activated
+			 * after new features were added.
+			 */
+			navigationCtrl = panel.controls[0];
+			navigationCtrl.navActivate = panel.controls[0].activate;
+			navigationCtrl.navDeactivate = panel.controls[0].deactivate;
+			navigationCtrl.activate = function () {
+				this.navActivate();
+				selectCtrl.activate();
+			};
+			navigationCtrl.deactivate = function () {
+				this.navDeactivate();
+				selectCtrl.deactivate();
+			};
 			map.events.register("click", map, function(e){
 				selectCtrl.deactivate();
 				selectCtrl.activate();
@@ -254,6 +272,7 @@
 				$('#geometry_color').ColorPickerHide();
 				$('#geometryLabelerHolder').hide(400);
 				selectCtrl.activate();
+				return false;
 			});
 			
 			// Delete Selected Features
@@ -264,6 +283,7 @@
 				$('#geometry_color').ColorPickerHide();
 				$('#geometryLabelerHolder').hide(400);
 				selectCtrl.activate();
+				return false;
 			});
 			
 			// Clear Map
@@ -280,6 +300,7 @@
 				$('#geometry_color').ColorPickerHide();
 				$('#geometryLabelerHolder').hide(400);
 				selectCtrl.activate();
+				return false;
 			});
 			
 			// GeoCode
@@ -295,9 +316,11 @@
 			});
 			
 			// Event on Latitude/Longitude Typing Change
-			$('#latitude, #longitude').bind("change keyup", function() {
+			$('#latitude, #longitude').bind("blur", function() {
 				var newlat = $("#latitude").val();
 				var newlon = $("#longitude").val();
+				// Do nothing if either field is empty.
+				if (newlat == '' || newlon == '') return;
 				if (!isNaN(newlat) && !isNaN(newlon))
 				{
 					// Clear the map first
@@ -315,11 +338,12 @@
 					myPoint.transform(proj_4326, map.getProjectionObject());
 
 					// display the map centered on a latitude and longitude
-					map.setCenter(myPoint, <?php echo $default_zoom; ?>);
+					map.panTo(myPoint);
 				}
 				else
 				{
-					alert('Invalid value!')
+					// Commenting this out as its horribly annoying
+					//alert('Invalid value!');
 				}
 			});
 			
@@ -413,7 +437,7 @@
 			<?php endif; ?>
 		
 			// Category treeview
-			$("#category-column-1,#category-column-2").treeview({
+			$(".category-column").treeview({
 			  persist: "location",
 			  collapsed: true,
 			  unique: false
@@ -615,7 +639,7 @@
 					myPoint.transform(proj_4326, map.getProjectionObject());
 
 					// display the map centered on a latitude and longitude
-					map.setCenter(myPoint, <?php echo $default_zoom; ?>);
+					map.panTo(myPoint);
 
 					// Update form values (jQuery)
 					$("#location_name").attr("value", $('#select_city :selected').text());
@@ -694,7 +718,7 @@
 						myPoint.transform(proj_4326, map.getProjectionObject());
 
 						// display the map centered on a latitude and longitude
-						map.setCenter(myPoint, <?php echo $default_zoom; ?>);
+						map.panTo(myPoint);
 												
 						// Update form values
 						$("#country_name").val(data.country);
@@ -723,7 +747,7 @@
 					function(data){
 						if (data.status == 'success'){
 							$('#custom_forms').html('');
-							$('#custom_forms').html(decodeURIComponent(data.response));
+							$('#custom_forms').html(data.response);
 							$('#form_loader').html('');
 						}
 				  	}, "json");

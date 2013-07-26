@@ -72,9 +72,10 @@ class Profile_Controller extends Members_Controller
 			// If Password field is not blank
 			if ( ! empty($post->new_password))
 			{
-				$post->add_rules('new_password','required','length['.kohana::config('auth.password_length').']' ,'alpha_numeric','matches[password_again]');
+				$post->add_rules('new_password','required','length['.kohana::config('auth.password_length').']' ,'alpha_dash','matches[password_again]');	
 			}
-
+			//for plugins that want to know what the user had to say about things
+			Event::run('ushahidi_action.profile_post_member', $post);
 			if ($post->validate())
 			{
 
@@ -103,11 +104,13 @@ class Profile_Controller extends Members_Controller
 					$user->public_profile = $post->public_profile;
 					$user->color = $post->color;
 					$user->needinfo = $needinfo;
-					if ($post->new_password != '')
+					if (! empty($post->new_password))
 					{
 						$user->password = $post->new_password;
 					}
 					$user->save();
+					//for plugins that want to know how the user now stands
+					Event::run('ushahidi_action.profile_edit_member', $user);
 
 					// We also need to update the RiverID server with the new password if
 	                //    we are using RiverID and a password is being passed
@@ -176,7 +179,7 @@ class Profile_Controller extends Members_Controller
 		$this->template->content->yesno_array = array('1'=>utf8::strtoupper(Kohana::lang('ui_main.yes')),'0'=>utf8::strtoupper(Kohana::lang('ui_main.no')));
 
 		// Javascript Header
-		$this->template->colorpicker_enabled = TRUE;
+		$this->themes->colorpicker_enabled = TRUE;
 	}
 
 	/**

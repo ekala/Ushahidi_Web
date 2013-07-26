@@ -11,13 +11,13 @@
 		<div id="underfooter"></div>
 
 		<!-- footer content -->
-		<div class="rapidxwpr floatholder">
+		<div class="wrapper floatholder">
 
 			<!-- footer credits -->
 			<div class="footer-credits">
 				Powered by the &nbsp;
 				<a href="http://www.ushahidi.com/">
-					<img src="<?php echo url::file_loc('img'); ?>media/img/footer-logo.png" alt="Ushahidi" style="vertical-align:middle" />
+					<img src="<?php echo url::file_loc('img'); ?>media/img/footer-logo.png" alt="Ushahidi" class="footer-logo" />
 				</a>
 				&nbsp; Platform
 			</div>
@@ -67,11 +67,6 @@
 		      	<?php endif; ?>
 			</div>
 			<!-- / footer menu -->
-
-
-			<h2 class="feedback_title" style="clear:both">
-				<a href="http://feedback.ushahidi.com/fillsurvey.php?sid=2"><?php echo Kohana::lang('ui_main.feedback'); ?></a>
-			</h2>
 
 
 		</div>

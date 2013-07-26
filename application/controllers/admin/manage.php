@@ -125,6 +125,13 @@ class Manage_Controller extends Admin_Controller
 				// Test to see if things passed the rule checks
 				if ($category->validate($category_data) AND $post->validate(FALSE))
 				{
+					// Get Category position for a new category
+					if (empty($_POST['category_id']))
+					{
+						$cat_count = ORM::factory('category')->count_all();
+						$category->category_position = $cat_count;
+					}
+					
 					// Save the category
 					$category->save();
 					
@@ -232,72 +239,11 @@ class Manage_Controller extends Admin_Controller
 				// Delete action
 				if ($category->loaded)
 				{
-					ORM::factory('category_lang')
-						->where(array('category_id' => $category->id))
-						->delete_all();
-					
-					// Check for all subcategories tied to this category and make them top level
-					$children = ORM::factory('category')
-						->where('parent_id', $category->id)
-						->find_all();
-					
-					if ($children)
-					{
-						foreach ($children as $child)
-						{
-							$sub_cat = new Category_Model($child->id);
-							$sub_cat->parent_id = 0;
-							$sub_cat->save();
-						}
-					}
-						
-					// Check for all reports tied to this category to be deleted
-					$result = ORM::factory('incident_category')
-								->where('category_id',$category->id)
-								->find_all();
-					
-					// If there are reports returned by the query
-					if ($result)
-					{
-						foreach ($result as $orphan)
-						{
-							$orphan_incident_id = $orphan->incident_id;
-						
-							// Check if the report is tied to any other category
-							$count = ORM::factory('incident_category')
-										->where('incident_id',$orphan_incident_id)
-										->count_all();
-					
-							// If this report is tied to only one category(is uncategorized)
-							if ($count == 1)
-							{
-								// Assign it to the special category for uncategorized reports
-								$orphaned = ORM::factory('incident_category',$orphan->id);
-								$orphaned->category_id = 5;
-								$orphaned->save();
-								
-								// Deactivate the report so that it's not accessible on the frontend
-								$orphaned_report = ORM::factory('incident',$orphan_incident_id);
-								$orphaned_report->incident_active = 0;
-								$orphaned_report->save();
-							
-							}
-						
-							// If this report is tied to more than one category(not uncategorized), remove relation to category being deleted						
-							else
-							{
-								ORM::factory('incident_category')
-									->delete($orphan->id);
-							}
-						}
-					}
-					
-					// @todo Delete the category image
-					
-					// Delete category itself - except if it is trusted
+					// Delete category - except if it is trusted
 					if (! $category->category_trusted)
 					{
 						$category->delete();
+						// Note: deleting related models is handled by Category_Model::delete()
 					}
 					
 					$form_saved = TRUE;
@@ -379,7 +325,7 @@ class Manage_Controller extends Admin_Controller
 		$categories = ORM::factory('category')
 						->with('category_lang')
 						->where('parent_id','0')
-						->orderby('category_title', 'asc')
+						->orwhere('parent_id NOT IN (SELECT id from `'.Kohana::config('database.default.table_prefix').'category`)') // Find orphaned categories.. slightly horrible SQL
 						->find_all($this->items_per_page, $pagination->sql_offset);
 
 		$parents_array = ORM::factory('category')
@@ -405,13 +351,13 @@ class Manage_Controller extends Admin_Controller
 		$this->template->content->parents_array = $parents_array;
 
 		// Javascript Header
-		$this->template->colorpicker_enabled = TRUE;
-		$this->template->tablerowsort_enabled = TRUE;
-		$this->template->js = new View('admin/manage/categories/categories_js');
+		$this->themes->colorpicker_enabled = TRUE;
+		$this->themes->tablerowsort_enabled = TRUE;
+		$this->themes->js = new View('admin/manage/categories/categories_js');
 		$this->template->form_error = $form_error;
 
 		$this->template->content->locale_array = $locales;
-		$this->template->js->locale_array = $locales;
+		$this->themes->js->locale_array = $locales;
 	}
 	
 	/**
@@ -467,16 +413,18 @@ class Manage_Controller extends Admin_Controller
 			}
 		}
 	}
-	
+
 	/**
 	 * Manage Public Listing for External Applications
 	 */
 	public function publiclisting()
 	{
 		$this->template->content = new View('admin/manage/publiclisting');
-		
+
 		$this->template->content->encoded_stat_id = base64_encode(Settings_Model::get_setting('stat_id'));
 		$this->template->content->encoded_stat_key = base64_encode(Settings_Model::get_setting('stat_key'));
+		$this->template->content->lat = Settings_Model::get_setting('default_lat');
+		$this->template->content->lon = Settings_Model::get_setting('default_lon');
 	}
 
 
@@ -584,8 +532,8 @@ class Manage_Controller extends Admin_Controller
 		$this->template->content->errors = $errors;
 
 		// Javascript Header
-		$this->template->editor_enabled = TRUE;
-		$this->template->js = new View('admin/manage/pages/pages_js');
+		$this->themes->editor_enabled = TRUE;
+		$this->themes->js = new View('admin/manage/pages/pages_js');
 	}
 
 
@@ -688,8 +636,8 @@ class Manage_Controller extends Admin_Controller
 		$this->template->content->errors = $errors;
 
 		// Javascript Header
-		$this->template->colorpicker_enabled = TRUE;
-		$this->template->js = new View('admin/manage/feeds/feeds_js');
+		$this->themes->colorpicker_enabled = TRUE;
+		$this->themes->js = new View('admin/manage/feeds/feeds_js');
 	}
 
 	/**
@@ -724,8 +672,9 @@ class Manage_Controller extends Admin_Controller
 			if( $post->validate() )
 			{
 				$item_id = $this->input->post('item_id');
+				if (!is_array($item_id)) $item_id = array($item_id);
 
-				ORM::factory('feed_item')->delete($item_id);
+				ORM::factory('feed_item')->in('id', $item_id)->delete_all($item_id);
 
 				$form_saved = TRUE;
 				$form_action = utf8::strtoupper(Kohana::lang('ui_admin.deleted'));
@@ -756,7 +705,7 @@ class Manage_Controller extends Admin_Controller
 		$this->template->content->total_items = $pagination->total_items;
 
 		// Javascript Header
-		$this->template->js = new View('admin/manage/feeds/items_js');
+		$this->themes->js = new View('admin/manage/feeds/items_js');
 	}
 
 	/**
@@ -967,94 +916,8 @@ class Manage_Controller extends Admin_Controller
 		$this->template->content->layers = $layers;
 
 		// Javascript Header
-		$this->template->colorpicker_enabled = TRUE;
-		$this->template->js = new View('admin/manage/layers/layers_js');
-	}
-
-	/**
-	 * Add Edit Reporter Levels
-	 */
-	public function levels()
-	{
-		$this->template->content = new View('admin/manage/levels');
-		$this->template->content->title = Kohana::lang('ui_admin.reporter_levels');
-
-		// setup and initialize form field names
-		$form = array
-		(
-			'level_id' => '',
-			'level_title' => '',
-			'level_description' => '',
-			'level_weight' => ''
-		);
-		
-		// Copy the form as errors, so the errors will be stored with keys corresponding to the form field names
-		$errors = $form;
-		$form_error = FALSE;
-		$form_saved = FALSE;
-		$form_action = "";
-
-		// Check, has the form been submitted, if so, setup validation
-		if ($_POST)
-		{
-			// Level_Model instance for the opertation
-			$level = (isset($_POST['level_id']) AND Level_Model::is_valid_level($_POST['level_id']))
-						? new Level_Model($_POST['level_id'])
-						: new Level_Model();
-
-			if ($_POST['action'] == 'a')
-			{
-				// Manually extract the data to be validated
-				$data = arr::extract($_POST, 'level_title', 'level_description', 'level_weight');
-				
-				if ($level->validate($data))
-				{
-					$level->save();
-					$form_saved = TRUE;
-					$form_action = utf8::strtoupper(Kohana::lang('ui_admin.added_edited'));
-				}
-				// No! We have validation errors, we need to show the form again, with the errors
-				else
-				{
-					// Repopulate the form fields
-					$form = arr::overwrite($form, $data->as_array());
-
-					// Ropulate the error fields, if any
-					$errors = arr::overwrite($errors, $data->errors('level'));
-					$form_error = TRUE;
-				}
-			}
-			elseif ($_POST['action'] == 'd')
-			{
-				if ($level->loaded)
-				{
-					// Levels are tied to reporters, therefore nullify 
-					// @todo Reporter_Model::delink_level($level_id)
-					$level->delete();
-					$form_saved = TRUE;
-					$form_action = utf8::strtoupper(Kohana::lang('ui_admin.deleted'));
-				}
-			}
-		}
-
-		// Pagination
-		$pagination = new Pagination(array(
-			'query_string' => 'page',
-			'items_per_page' => $this->items_per_page,
-			'total_items' => ORM::factory('level')->count_all()
-		));
-
-		$levels = ORM::factory('level')
-					->orderby('level_weight', 'asc')
-					->find_all($this->items_per_page, $pagination->sql_offset);
-
-		$this->template->content->errors = $errors;
-		$this->template->content->form_error = $form_error;
-		$this->template->content->form_saved = $form_saved;
-		$this->template->content->form_action = $form_action;
-		$this->template->content->pagination = $pagination;
-		$this->template->content->total_items = $pagination->total_items;
-		$this->template->content->levels = $levels;
+		$this->themes->colorpicker_enabled = TRUE;
+		$this->themes->js = new View('admin/manage/layers/layers_js');
 	}
 
 	/**
@@ -1178,6 +1041,9 @@ class Manage_Controller extends Admin_Controller
 							}
 
 							$newitem->save();
+
+							// Action::feed_item_add - Feed Item Received!
+							Event::run('ushahidi_action.feed_item_add', $newitem);
 						}
 					}
 				}

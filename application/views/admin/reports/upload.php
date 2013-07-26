@@ -48,6 +48,22 @@
 			<li><?php echo Kohana::lang('ui_main.upload_reports_detail_4');?></li>
 			<li><?php echo Kohana::lang('ui_main.upload_reports_detail_4b');?></li>
 		</ul>
+		<p><strong><?php echo Kohana::lang('ui_main.upload_reports_detail_4c')?></strong></p>
+		<ul>
+			<li><?php echo Kohana::lang('ui_main.upload_reports_detail_4d')?></li>
+			<li><?php echo Kohana::lang('ui_main.upload_reports_custom_forms')?>
+				<ol>
+					<li><?php echo Kohana::lang('ui_main.upload_reports_detail_4e')?></li>
+					<li><?php echo Kohana::lang('ui_main.upload_reports_detail_4f')?></li>
+					<li><?php echo Kohana::lang('ui_main.upload_reports_detail_4g')?></li>
+				<ol>
+			</li>
+		</ul>
+		<h3><?php echo Kohana::lang('ui_main.upload_guide')?></h3>
+		<ul>
+			<li><a href="https://wiki.ushahidi.com/display/WIKI/XML+Upload+Guide"><?php echo Kohana::lang('ui_main.upload_docs_1')?></a></li>
+			<li><a href="https://wiki.ushahidi.com/display/WIKI/CSV+Upload+Guide"><?php echo Kohana::lang('ui_main.upload_docs_2')?></a></li>
+		</ul>
 			<p>
 				<?php echo Kohana::lang('ui_main.upload_reports_detail_5');?>:
 				<p>
@@ -57,7 +73,7 @@
 				</p>
 			</p>
 			<?php print form::open(NULL, array('id' => 'uploadForm', 'name' => 'uploadForm', 'enctype' => 'multipart/form-data')); ?>
-            <p><b><?php echo Kohana::lang('ui_main.upload_file');?></b> <?php echo form::upload(array('name' => 'csvfile'), 'path/to/local/file'); ?></p>
+            <p><b><?php echo Kohana::lang('ui_main.upload_file');?></b> <?php echo form::upload(array('name' => 'uploadfile'), 'path/to/local/file'); ?></p>
 			<button type="submit"><?php echo Kohana::lang('ui_main.upload');?></button>
 			<?php print form::close(); ?>
 		</div>

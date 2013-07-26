@@ -8,12 +8,12 @@
 	{
 		// Is the field required
 		$isrequired = ($field_property['field_required'])
-			? "<font color=red> *</font>"
+			? "<span class='required'> *</span>"
 			: "";
 
 		// Private field
 		$isprivate = ($field_property['field_ispublic_visible'])
-			? '<font style="color:gray;font-size:70%">(' . Kohana::lang('ui_main.private') . ')</font>'
+			? '<span class="private">(' . Kohana::lang('ui_main.private') . ')</span>'
 			: '';
 
 		// Workaround for situations where admin can view, but doesn't have sufficient perms to edit.
@@ -163,10 +163,10 @@
 				case 5:
 					foreach($options as $option)
 					{
-						$set_default = ($option == $default);
 						$option = trim($option);
+						$set_default = ($option == trim($default));
 
-						$html .= "<span style=\"margin-right: 15px\">";
+						$html .= "<span class=\"custom-field-option\">";
 						$html .= form::label('custom_field['.$field_id.']'," ".$option." ");
 						$html .= form::radio('custom_field['.$field_id.']',$option, $set_default, $id_name);
 						$html .= "</span>";
@@ -197,7 +197,7 @@
 							}
 						}
 						$option = trim($option);
-						$html .= "<span style=\"margin-right: 15px\">";
+						$html .= "<span class=\"custom-field-option\">";
 						$html .= form::checkbox("custom_field[".$field_id.'-'.$cnt.']', $option, $set_default, $id_name);
 						$html .= form::label("custom_field[".$field_id.']'," ".$option);
 						$html .= "</span>";
@@ -321,10 +321,7 @@
 			<a href=\"javascript:fieldAction('e','EDIT',".$field_id.",".$form['id'].",".$field_property['field_type'].");\">EDIT</a>&nbsp;|&nbsp;
 			<a href=\"javascript:fieldAction('d','DELETE',".$field_id.",".$form['id'].",".$field_property['field_type'].");\">DELETE</a>&nbsp;|&nbsp;
 			<a href=\"javascript:fieldAction('mu','MOVE',".$field_id.",".$form['id'].",".$field_property['field_type'].");\">MOVE UP</a>&nbsp;|&nbsp;
-			<a href=\"javascript:fieldAction('md','MOVE',".$field_id.",".$form['id'].",".$field_property['field_type'].");\">MOVE DOWN</a>&nbsp;|&nbsp;
-			". Kohana::lang('ui_admin.required').": ".$isrequired."&nbsp;|&nbsp;
-			". Kohana::lang('ui_main.reports_btn_submit').": ".$visibility_selection[$field_property['field_ispublic_submit']]."&nbsp;|&nbsp;
-			". Kohana::lang('ui_main.view').": ".$visibility_selection[$field_property['field_ispublic_visible']]."
+			<a href=\"javascript:fieldAction('md','MOVE',".$field_id.",".$form['id'].",".$field_property['field_type'].");\">MOVE DOWN</a>
 			</div>";
 			echo $form_fields;
 		}

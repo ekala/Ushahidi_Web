@@ -55,8 +55,8 @@ class Stats_Controller extends Admin_Controller {
 		$this->template->content->title = Kohana::lang('ui_admin.statistics');
 
 		// Javascript Header
-		$this->template->protochart_enabled = TRUE;
-		$this->template->js = new View('admin/stats/stats_js');
+		$this->themes->protochart_enabled = TRUE;
+		$this->themes->js = new View('admin/stats/stats_js');
 
 		$this->template->content->failure = '';
 
@@ -192,8 +192,8 @@ class Stats_Controller extends Admin_Controller {
         $this->template->content->title = Kohana::lang('ui_admin.statistics');
         
         // Javascript Header
-        $this->template->raphael_enabled = TRUE;
-        $this->template->js = new View('admin/stats/stats_js');
+        $this->themes->raphael_enabled = TRUE;
+        $this->themes->js = new View('admin/stats/stats_js');
         
         $this->template->content->failure = '';
         
@@ -298,8 +298,8 @@ class Stats_Controller extends Admin_Controller {
         $this->template->content->title = Kohana::lang('ui_admin.statistics');
         
         // Javascript Header
-        $this->template->protochart_enabled = TRUE;
-        $this->template->js = new View('admin/stats/stats_js');
+        $this->themes->protochart_enabled = TRUE;
+        $this->themes->js = new View('admin/stats/stats_js');
         
         $this->template->content->failure = '';
         
@@ -372,7 +372,7 @@ class Stats_Controller extends Admin_Controller {
         $this->template->content->title = Kohana::lang('ui_admin.statistics');
         
         // Javascript Header
-        $this->template->js = new View('admin/stats/stats_js');
+        $this->themes->js = new View('admin/stats/stats_js');
         
         $this->template->content->failure = '';
         
@@ -447,7 +447,7 @@ class Stats_Controller extends Admin_Controller {
             $i++;
         }
         
-        $this->template->content->visitor_map = "https://chart.googleapis.com/chart?chs=440x220&chf=bg,s,ffffff&cht=t&chtm=world&chco=cccccc,A07B7B,a20000&chld=".$codes."&chd=t:".$values;
+        $this->template->content->visitor_map = Kohana::config('core.site_protocol')."://chart.googleapis.com/chart?chs=440x220&chf=bg,s,ffffff&cht=t&chtm=world&chco=cccccc,A07B7B,a20000&chld=".$codes."&chd=t:".$values;
         
         // Hit Data
         $data = Stats_Model::get_hit_stats($range,$dp1,$dp2);
@@ -533,7 +533,7 @@ class Stats_Controller extends Admin_Controller {
 				$highest_value = $data[$dow][$hour];
 			}
 		}
-		$this->template->content->chart_url = 'https://chart.googleapis.com/chart?chs=905x300&chds=-1,24,-1,7,0,'.$highest_value.'&chf=bg,s,efefef&chd=t:0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23|0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7|'.implode(',',$data['sun']).','.implode(',',$data['mon']).','.implode(',',$data['tue']).','.implode(',',$data['wed']).','.implode(',',$data['thu']).','.implode(',',$data['fri']).','.implode(',',$data['sat']).',0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0&chxt=x,y&chm=o,333333,1,1.0,30.0&chxl=0:||12'.Kohana::lang('datetime.am').'|1|2|3|4|5|6|7|8|9|10|11|12'.Kohana::lang('datetime.pm').'|1|2|3|4|5|6|7|8|9|10|11||1:||'.Kohana::lang('datetime.sunday.abbv').'|'.Kohana::lang('datetime.monday.abbv').'|'.Kohana::lang('datetime.tuesday.abbv').'|'.Kohana::lang('datetime.wednesday.abbv').'|'.Kohana::lang('datetime.thursday.abbv').'|'.Kohana::lang('datetime.friday.abbv').'|'.Kohana::lang('datetime.saturday.abbv').'|&cht=s';
+		$this->template->content->chart_url = Kohana::config('core.site_protocol').'://chart.googleapis.com/chart?chs=905x300&chds=-1,24,-1,7,0,'.$highest_value.'&chf=bg,s,efefef&chd=t:0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23|0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7|'.implode(',',$data['sun']).','.implode(',',$data['mon']).','.implode(',',$data['tue']).','.implode(',',$data['wed']).','.implode(',',$data['thu']).','.implode(',',$data['fri']).','.implode(',',$data['sat']).',0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0&chxt=x,y&chm=o,333333,1,1.0,30.0&chxl=0:||12'.Kohana::lang('datetime.am').'|1|2|3|4|5|6|7|8|9|10|11|12'.Kohana::lang('datetime.pm').'|1|2|3|4|5|6|7|8|9|10|11||1:||'.Kohana::lang('datetime.sunday.abbv').'|'.Kohana::lang('datetime.monday.abbv').'|'.Kohana::lang('datetime.tuesday.abbv').'|'.Kohana::lang('datetime.wednesday.abbv').'|'.Kohana::lang('datetime.thursday.abbv').'|'.Kohana::lang('datetime.friday.abbv').'|'.Kohana::lang('datetime.saturday.abbv').'|&cht=s';
 
 	}
     

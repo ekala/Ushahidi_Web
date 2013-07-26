@@ -39,7 +39,7 @@
 						{ ?>
 							<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li>
 							<li><a href="?type=<?php echo $type ?>&level=0" <?php if ($level == '0') echo "class=\"active2\""; ?>><?php echo Kohana::lang('ui_main.all');?> (<?php echo $count_all; ?>)</a></li>
-							<li><a href="?type=<?php echo $type ?>&level=4" <?php if ($level == '4') echo "class=\"active2\""; ?>>Trusted (<?php echo $count_trusted; ?>)</a></li>
+							<li><a href="?type=<?php echo $type ?>&level=4" <?php if ($level == '4') echo "class=\"active2\""; ?>><?php echo Kohana::lang('ui_main.trusted'); ?> (<?php echo $count_trusted; ?>)</a></li>
 							<li><a href="?type=<?php echo $type ?>&level=2" <?php if ($level == '2') echo "class=\"active2\""; ?>><?php echo Kohana::lang('ui_main.spam');?> (<?php echo $count_spam; ?>)</a></li>
 						<?php } ?>
 						<li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li>
@@ -112,11 +112,11 @@
 								foreach ($messages as $message)
 								{
 									$message_id = $message->id;
-									$message_from = strip_tags($message->reporter->service_account);
-									$message_to = strip_tags($message->message_to);
+									$message_from = html::strip_tags($message->reporter->service_account);
+									$message_to = html::strip_tags($message->message_to);
 									$incident_id = $message->incident_id;
-									$message_description = text::auto_link(strip_tags($message->message));
-									$message_detail = nl2br(text::auto_link(strip_tags($message->message_detail)));
+									$message_description = text::auto_link(html::strip_tags($message->message));
+									$message_detail = nl2br(text::auto_link(html::strip_tags($message->message_detail)));
 									$message_date = date('Y-m-d  H:i', strtotime($message->message_date));
 									$message_type = $message->message_type;
 									$message_level = $message->message_level;
@@ -133,7 +133,7 @@
 											<div class="post">
 												<p><?php echo $message_description; ?></p>
 												<?php
-												if ($message_detail OR $message->media != null)
+												if ($message_detail OR $message->media->count() > 0)
 												{
 													?>
 													<p><a href="javascript:preview('message_preview_<?php echo $message_id?>')"><?php echo Kohana::lang('ui_main.preview_message');?></a></p>
