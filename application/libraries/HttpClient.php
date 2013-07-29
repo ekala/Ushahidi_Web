@@ -9,198 +9,197 @@
  */
 
 class HttpClient_Core {
-    
-    /**
-     * Curl handler
-     *
-     * @access private
-     * @var resource
-     */
-    private $ch;
-    /**
-     * Ability to turn debugging info for useful info when 
-     * debugging
-     *
-     * @access private
-     * @var string
-     */
-    private $debug;
-    
-    /**
-     * Holds error messages if error occurs
-     *
-     * @access private
-     * @var string
-     */
-    private $error_msg;
+	    
+	/**
+	 * Holds error messages if error occurs
+	 * @var string
+	 */
+	private $_error_msg;
 
-    /**
-     * The Ushahidi URL
-     *
-     * @access private
-     * @var string
-     */
-    private $url;
-
-    /**
-     * Timeout to do a request that is taking forever.
-     *
-     * @access private
-     * @var int
-     */
-    private $timeout;
+	/**
+	 * HTTP status code return by the curl request
+	 * @var int
+	 */
+	private $_status_code;
+	
+	/**
+	 * curl connection options
+	 * @var array
+	 */
+	private $_options = array();
+	
+	public function __construct($url = FALSE, $timeout = 20)
+	{
+		// Default curl options
+		$this->_options = array(
+			CURLOPT_TIMEOUT => $timeout,
+			
+			CURLOPT_RETURNTRANSFER => TRUE,
+			
+			// Set error in case HTTP response code > 300
+			CURLOPT_FAILONERROR => TRUE,
+			
+			// Allow redirects
+			CURLOPT_FOLLOWLOCATION => TRUE,
+			
+			// Use gzip if possible
+			CURLOPT_ENCODING => 'gzip,deflate',
+			
+			// Disable SSL verification
+			CURLOPT_SSL_VERIFYPEER => FALSE,
+			
+			CURLOPT_SSL_VERIFYHOST => 2
+		);
+		
+		// Check if the URL has been set
+		if (valid::url($url))
+		{
+			$this->_options[CURLOPT_URL] = $url;
+		}
+	}
     
-    public function __construct($url, $timeout=20)
-    {
-        $this->url = $url;
-        $this->timeout = $timeout;
-        $this->init_curl();
-    }    
-    
-    /**
-     * Initialize a curl session
-     *
-     * @access private
-     */
-    private function init_curl()
-    {
-        //initial curl handle
-        $this->ch = curl_init();        
-        // set curl's various options        
-        
-        //set error in case http return code bigger than 300
-        curl_setopt($this->ch, CURLOPT_FAILONERROR, TRUE);		
-        
-        // allow redirects just incase a user wants that
-        curl_setopt($this->ch, CURLOPT_FOLLOWLOCATION, TRUE);		
-        
-        // use gzip if possible for performance
-        curl_setopt($this->ch,CURLOPT_ENCODING , 'gzip, deflate');
-        
-        // do not veryfy ssl for 
-		// as well for being able to access pages with non valid cert
-        curl_setopt($this->ch, CURLOPT_SSL_VERIFYPEER, FALSE);
-        curl_setopt($this->ch, CURLOPT_SSL_VERIFYHOST,  2);
-    }    
-        
-    /**
-     * Set client's user agent
-     *
-     * @access private
-     * @param string useragent
-     */
-    public function set_useragent($useragent)
-    {
-        curl_setopt($this->ch, CURLOPT_USERAGENT, $useragent);
-    }    
-        
-    /**
-     * Get http response code
-     *
+	/**
+	 * Set client's user agent
+	 *
+	 * @access private
+	 * @param string useragent
+	 */
+	public function set_useragent($useragent)
+	{
+		$this->_options[CURLOPT_USERAGENT] = $useragent;
+	}
+	
+	/**
+	 * Get http response code
+	 *
 	 * @access private
 	 * @return int
 	 */
 	public function get_http_response_code()
 	{
-		return curl_getinfo($this->ch, CURLINFO_HTTP_CODE);
-    }    
-    
-    /**
-     * Set error message that might show up
-     *
-     * @access protected
-     * @param string error_msg - The error message
-     */
-    public function get_error_msg()
-    {
-       return $this->error_msg;
-    }	
-    
-    /**
-     * Return last error message and error number
-     *
-     * @access 	private 
-     * @return string - Error msg
-	 */
-	public function set_error_msg()
-	{
-		$err = "Error number: " .curl_errno($this->ch) ."\n";
-        $err .= "Error message: " .curl_error($this->ch)."\n";
-        $this->error_msg .= $err;
-
-        return $this->error_msg;
+		return $this->_status_code;
 	}
 	
 	/**
-	 * Close curl session and free resource
-	 * Usually no need to call this function directly
-     * in case you do you have to call init() to recreate curl
-     *
-	 * @access private
+	 * Set error message that might show up
+	 *
+	 * @access protected
+	 * @param string error_msg - The error message
 	 */
-	private function close()
+	public function get_error_msg()
 	{
-		//close curl session and free up resources
-		curl_close($this->ch);
-    }
-
-    /**
-     * Setup ip interface to curl and timeouts for curl. Shows all debugging and error info
-     * if there are any
-     *
-     * @access private
-     *  
-     * @param string qry_string
-     * @param string ip address to bind (default null)
-     * @param int timeout in sec for complete curl operation (default 10)
-     *
-     */
-    private function prepare_curl()
-    {
-
-        //set various curl options first
-		curl_setopt($this->ch, CURLOPT_URL,$this->url);
-
-		// return into a variable rather than displaying it
-		curl_setopt($this->ch, CURLOPT_RETURNTRANSFER,TRUE);
-
-		//set curl function timeout to $timeout
-		curl_setopt($this->ch, CURLOPT_TIMEOUT, $this->timeout);
-
-
-    }
-
-    /** 
-     * Fetch data from target URL return data returned from url or false if error occured
-     *
-     * @access proctected
-     *
-	 * @param string getdata - The query data to pass to the url	 
-	 * @param string ip address to bind (default null)
-	 * @param int timeout in sec for complete curl operation (default 5)
-	 * @return string data
+		return $this->_error_msg;
+	}	
+    
+	/**
+	 * Sets the error message
+	 *
+	 * @param  string $error curl error message
 	 */
-	public function execute()
-    {
-        $this->prepare_curl(); 
-		//set method to get
+	private function _set_error_msg($error)
+	{
+		$this->_error_msg  = sprintf("Error fetching remote url [status %s]: %s",
+			$this->_status_code, $error);
+	}
+	
+	/** 
+	 * Fetch data from target URL return data returned from url or 
+	 * false if error occured
+	 *
+	 * @param   string uri          URI of the request
+	 * @param   array  parameters   Array of parameters to be submitted
+	 * @param   string http_method  HTTP request method
+	 * @param   array  headers      Header information
+	 * @return  string If successful, FALSE otherwise
+	 */
+	public function execute($uri = FALSE, $parameters = array(), $http_method = "GET", $headers = array())
+	{
+		// Check if the URL has been specified
+		if ( ! isset($this->_options[CURLOPT_URL]) AND $uri === FALSE)
+		{
+			throw new Kohana_Exception("The URI of the request has not been specified");
+		}
+		
+		// Validate and set the URI of the request
+		if ($uri AND valid::url($uri))
+		{
+			$this->_options[CURLOPT_URL] = $uri;
+		}
+		else
+		{
+			$message = sprintf("The specified uri '%s' is invalid");
+			throw new Kohana_Exception($message);
+		}
+		
+		if ( ! empty($http_method))
+		{
+			$this->_options[CURLOPT_CUSTOMREQUEST] = strtoupper($http_method);
+		}
 
-		//and finally send curl request
-		$result = curl_exec($this->ch);
-
-		if (curl_errno($this->ch))
-        {
-            $this->set_error_msg();
-            $this->close();
-
+		// Check for the request method
+		switch (strtoupper($http_method))
+		{
+			case "POST":
+				$this->_options[CURLOPT_POST] = TRUE;
+				// Do not break
+			case "PUT":
+			case "PATCH":
+				if (is_array($parameters) AND ! empty($parameters))
+				{
+					$this->_options[CURLOPT_POSTFIELDS] = http_build_query($parameters, NULL, "&");
+				}
+				break;
+				
+			case "GET":
+			case "DELETE":
+				if ( ! empty($parameters))
+				{
+					$url = $this->_options[CURLOPT_URL].'?'.http_build_query($parameters, NULL, '&');;
+					$this->_options[CURLOPT_URL] = $url;
+				}
+				break;
+			default:
+				break;
+		}
+		
+		// Headers
+		if (is_array($headers) AND ! empty($headers))
+		{
+			$header = array();
+			foreach ($headers as $param => $value)
+			{
+				$header[] = sprintf("%s: %s", $param, $value);
+			}
+			$this->_options[CURLOPT_HTTPHEADER] = $header;
+		}
+		
+		// Open remote connection
+		$curl = curl_init();
+		
+		// Set connection options
+		curl_setopt_array($curl, $this->_options);
+		
+		// Get the response body
+		$response = curl_exec($curl);
+		
+		$this->_status_code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+		if ($response === FALSE)
+		{
+			$error = curl_error($curl);
+		}
+		
+		if (isset($error))
+		{
+			$this->_set_error_msg($error);
 			return FALSE;
 		}
 		
-        $this->close();
-	    return $result;
+		// Close the connection
+		curl_close($curl);
 		
+		return $response;
 	}
-    
+
 }
 
 ?>
