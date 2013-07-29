@@ -76,18 +76,19 @@ class DSSG_Api_Core {
 		$categories = array();
 		foreach (ORM::factory('category')->where('category_visible', 1)->find_all() as $category)
 		{
-			$entry = array(
-				'id' => $category->id,
-				'name'=> $category->category_title
-			);
-			
 			if ($category->parent_id > 0)
 			{
 				// Add child to parent
 				$this->_add_child($categories, $category);
 			}
+			else
+			{
+				$catgeories[] = array(
+					'id' => $category->id,
+					'name'=> $category->category_title
+				);
+			}
 
-			$categories[] = $entry;
 		}
 
 		// Request parameters
