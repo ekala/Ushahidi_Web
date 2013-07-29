@@ -209,6 +209,27 @@ class Settings_Model extends ORM {
 		}
 
 		return $settings;
-
+	}
+	
+	/**
+	 * Deletes the setting with the specified $key
+	 *
+	 * @param   string  $key The settings key to be deleted
+	 * @return  bool TRUE if successful, FALSE otherwise
+	 */
+	public static function delete_setting($key)
+	{
+		$settings_orm = ORM::factory('settings')
+		    ->where('key', $key)
+		    ->find();
+		
+		// Check if the entry exists?
+		if ($settings_orm->loaded)
+		{
+			$settings_orm->delete();
+			return TRUE;
+		}
+		
+		return FALSE;
 	}
 }
