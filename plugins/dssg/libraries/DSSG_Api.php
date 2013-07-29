@@ -71,11 +71,68 @@ class DSSG_Api_Core {
 	 */
 	public function register()
 	{
-		// POST deployments
-		$this->_post("/deployments", $parameters);
+		// Fetch the categories
+		// Fields for each entry: id, name, children (id, name)
+		$categories = array();
+		foreach (ORM::factory('category')->where('category_visible', 1)->find_all() as $category)
+		{
+			$entry = array(
+				'id' => $category->id,
+				'name'=> $category->category_title
+			);
+			
+			if ($category->parent_id > 0)
+			{
+				// Add child to parent
+				$this->_add_child($categories, $category);
+			}
+
+			$categories[] = $entry;
+		}
+
+		// Request parameters
+		$parameters = array(
+			// Name of the deployment
+			'name' => Settings_Model::get_setting('site_name'),
+			
+			// Categories in the deployment
+			'categories' => $categories
+		);
+
+		// Send request to register deployment
+		$response = $this->_post("/deployments", $parameters);
 		
 		// Save returned deployment ID in the settings table
-		Settings_Model::save_setting('dssg_deployment_id', $deployment_id);
+		Settings_Model::save_setting('dssg_deployment_id', $response['deployment_id']);
+	}
+	
+	/**
+	 * Adds the child category specified in $category to
+	 * its respective parent in the $categories array
+	 *
+	 * @param array categories
+	 * @param mixed category
+	 */
+	private function _add_child($categories, $category)
+	{
+		foreach ($category as & $entry)
+		{
+			if ($entry['id'] === $category->parent_id)
+			{
+				if ( ! array_key_exists('children', $entry))
+				{
+					$entry['children'] = array();
+				}
+				
+				// Add child entry
+				$entry['children'][] = array(
+					'id' => $category->id,
+					'name' => $category->category_title
+				);
+				
+				break;
+			}
+		}
 	}
 	
 	/**
@@ -132,7 +189,7 @@ class DSSG_Api_Core {
 	private function _post($endpoint, $parameters = array())
 	{
 		$request_uri = $this->_api_url.$endpoint;
-		$headers = array("Content-Type" => "application/json;");
+		$headers = array("Content-Type" => "application/json;charset=utf-8");
 		
 		$response = $this->_http_client->execute($request_uri,
 			json_encode($parameters), "POST", $headers);
@@ -164,7 +221,7 @@ class DSSG_Api_Core {
 	private function _put($endpoint, $parameters)
 	{
 		$request_uri = $this->_api_url.$endpoint;
-		$headers = array("Content-Type" => "application/json;");
+		$headers = array("Content-Type" => "application/json;charset=utf-8");
 		
 		return $this->_http_client->execute($request_uri, json_encode($parameters), "PUT", $headers);
 	}
