@@ -215,21 +215,16 @@ class Settings_Model extends ORM {
 	 * Deletes the setting with the specified $key
 	 *
 	 * @param   string  $key The settings key to be deleted
-	 * @return  bool TRUE if successful, FALSE otherwise
 	 */
 	public static function delete_setting($key)
 	{
-		$settings_orm = ORM::factory('settings')
-		    ->where('key', $key)
-		    ->find();
-		
-		// Check if the entry exists?
-		if ($settings_orm->loaded)
+		if (is_array($key))
 		{
-			$settings_orm->delete();
-			return TRUE;
+			ORM::factory('settings')->in('key', $key)->delete_all();
 		}
-		
-		return FALSE;
+		else
+		{
+			ORM::factory('settings')->where('key', $key)->delete_all();
+		}
 	}
 }
