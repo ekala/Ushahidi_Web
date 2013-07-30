@@ -140,13 +140,18 @@ class DSSG_Api_Core {
 			// Categories in the deployment
 			'categories' => $categories
 		);
-
+		
+		// Set $_api_url
+		$this->_api_url = $api_url;
+		
 		// Send request to register deployment
 		$response = $this->_post("/deployments", $parameters);
 		
-		// Save the API url and returned deployment ID in the settings table
-		Settings_Model::save_setting('dssg_api_url', $api_url);
-		Settings_Model::save_setting('dssg_deployment_id', $response['deployment_id']);
+		// TODO: Only save if a 200 status and deployment id have been
+		// returned
+		// Save plugin settings
+		Settings_Model::save_setting('dssg_api_url', $api_url);		
+		// Settings_Model::save_setting('dssg_deployment_id', $response['deployment_id']);
 	}
 	
 	/**
