@@ -115,20 +115,15 @@ class HttpClient_Core {
 	public function execute($uri = FALSE, $parameters = array(), $http_method = "GET", $headers = array())
 	{
 		// Check if the URL has been specified
-		if ( ! isset($this->_options[CURLOPT_URL]) AND $uri === FALSE)
+		if ( ! isset($this->_options[CURLOPT_URL]) AND ! valid::url($uri))
 		{
 			throw new Kohana_Exception("The URI of the request has not been specified");
 		}
 		
 		// Validate and set the URI of the request
-		if ($uri AND valid::url($uri))
+		if (valid::url($uri))
 		{
 			$this->_options[CURLOPT_URL] = $uri;
-		}
-		else
-		{
-			$message = sprintf("The specified uri '%s' is invalid");
-			throw new Kohana_Exception($message);
 		}
 		
 		$http_method = strtoupper($http_method);
