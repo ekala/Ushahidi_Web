@@ -32,10 +32,10 @@ class DSSG_Api_Core {
 	/**
 	 * Private constructor
 	 */
-	private function __construct()
+	private function __construct($api_url = NULL)
 	{
-		// Get the DSSG API url and assigned deployment id
-		$this->_api_url = Settings_Model::get_setting('dssg_api_url');
+		// Initialize attributes
+		$this->api_url($api_url);
 		$this->_deployment_id = Settings_Model::get_setting('dssg_deployment_id');
 		
 		// Initialize the HttpClient
@@ -47,14 +47,53 @@ class DSSG_Api_Core {
 	 *
 	 * @return DSSG_API
 	 */
-	public static function & instance()
+	public static function & instance($api_url = NULL)
 	{
-		if (empty(self::_instance))
+		if (empty(self::$_instance))
 		{
-			self::_instance = new DSSG_Api();
+			self::$_instance = new DSSG_Api($api_url);
 		}
 		
-		return self::_instance;
+		return self::$_instance;
+	}
+	
+	/**
+	 * Sets and gets the api url
+	 *
+	 * @param    string  api_url  The base url of the DSSG application
+	 */
+	public function api_url($api_url = NULL)
+	{
+		if ( ! empty($api_url) AND valid::url($api_url))
+		{
+			$this->_api_url = $api_url;
+		}
+		else
+		{
+			if (empty($this->_api_url))
+			{
+				$this->_api_url = Settings_Model::get_setting('dssg_api_url');
+			}
+			return $this->_api_url;
+		}
+	}
+	
+	/**
+	 * Sets and gets the HttpClient to be used for performing external requests
+	 * If no value is specified, current HttpClient object is returned
+	 *
+	 * @param  HttpClient http_client
+	 */
+	public function http_client($http_client = NULL)
+	{
+		if ( ! empty($http_client) AND $http_client instanceof HttpClient)
+		{
+			$this->_http_client = $http_client;
+		}
+		else
+		{
+			return $this->_http_client;
+		}
 	}
 
 	/**
@@ -69,7 +108,7 @@ class DSSG_Api_Core {
 	 * 	- Suggested report categories
 	 *	- Suggested similar messages/reports
 	 */
-	public function register()
+	public function register_deployment($api_url)
 	{
 		// Fetch the categories
 		// Fields for each entry: id, name, children (id, name)
@@ -88,13 +127,15 @@ class DSSG_Api_Core {
 					'name'=> $category->category_title
 				);
 			}
-
 		}
 
 		// Request parameters
 		$parameters = array(
 			// Name of the deployment
 			'name' => Settings_Model::get_setting('site_name'),
+			
+			// URL of this deployment
+			'deployment_url' => url::base(TRUE, TRUE),
 			
 			// Categories in the deployment
 			'categories' => $categories
@@ -103,7 +144,8 @@ class DSSG_Api_Core {
 		// Send request to register deployment
 		$response = $this->_post("/deployments", $parameters);
 		
-		// Save returned deployment ID in the settings table
+		// Save the API url and returned deployment ID in the settings table
+		Settings_Model::save_setting('dssg_api_url', $api_url);
 		Settings_Model::save_setting('dssg_deployment_id', $response['deployment_id']);
 	}
 	
@@ -159,12 +201,23 @@ class DSSG_Api_Core {
 		return $this->_post("/private_info", $parameters);
 	}
 	
+	/**
+	 * Returns the list of possible location names contained
+	 * in the provided $text
+	 *
+	 * @param  string text
+	 */
 	public function locations($text)
 	{
 		$parameters = array("text" => $text);
 		return $this->_post("/locations", $parameters);
 	}
 	
+	/**
+	 * Returns the list of other entities - other than location -
+	 * e.g. people, organisations, events etc contained in
+	 * the provided $text
+	 */
 	public function entities($text)
 	{
 		$parameters = array("text" => $text);
