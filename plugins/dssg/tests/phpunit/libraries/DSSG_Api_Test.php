@@ -52,9 +52,9 @@ class DSSG_Api_Test extends PHPUnit_Framework_TestCase {
 			->with($this->equalTo($this->_api_url."/private_info"),
 			       $this->_text_parameter,
 			       $this->equalTo("POST"),
-				   $this->_json_header);
-				   
-	   $this->_dssg_api->personal_info($this->_text);
+			       $this->_json_header);
+		   
+		$this->_dssg_api->personal_info($this->_text);
 	}
 	
 	/**
@@ -66,8 +66,8 @@ class DSSG_Api_Test extends PHPUnit_Framework_TestCase {
 			->method('execute')
 			->with($this->equalTo($this->_api_url.'/language'),
 			       $this->_text_parameter,
-				   $this->equalTo("POST"),
-				   $this->_json_header);
+			       $this->equalTo("POST"),
+			       $this->_json_header);
 
 		$this->_dssg_api->language($this->_text);
 	}
@@ -81,8 +81,8 @@ class DSSG_Api_Test extends PHPUnit_Framework_TestCase {
 			->method('execute')
 			->with($this->equalTo($this->_api_url.'/locations'),
 			       $this->_text_parameter,
-				   $this->equalTo("POST"),
-				   $this->_json_header);
+			       $this->equalTo("POST"),
+			       $this->_json_header);
 
 		$this->_dssg_api->locations($this->_text);
 		
@@ -97,8 +97,8 @@ class DSSG_Api_Test extends PHPUnit_Framework_TestCase {
 			->method('execute')
 			->with($this->equalTo($this->_api_url.'/entities'),
 			       $this->_text_parameter,
-				   $this->equalTo("POST"),
-				   $this->_json_header);
+			       $this->equalTo("POST"),
+			       $this->_json_header);
 
 		$this->_dssg_api->entities($this->_text);
 		
