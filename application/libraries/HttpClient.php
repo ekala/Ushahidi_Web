@@ -131,13 +131,14 @@ class HttpClient_Core {
 			throw new Kohana_Exception($message);
 		}
 		
+		$http_method = strtoupper($http_method);
 		if ( ! empty($http_method))
 		{
-			$this->_options[CURLOPT_CUSTOMREQUEST] = strtoupper($http_method);
+			$this->_options[CURLOPT_CUSTOMREQUEST] = $http_method;
 		}
 
 		// Check for the request method
-		switch (strtoupper($http_method))
+		switch ($http_method)
 		{
 			case "POST":
 				$this->_options[CURLOPT_POST] = TRUE;
