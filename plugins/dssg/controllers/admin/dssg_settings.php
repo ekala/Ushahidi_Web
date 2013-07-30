@@ -7,7 +7,7 @@
  * that is available through the world-wide-web at the following URI:
  * http://www.gnu.org/copyleft/lesser.html
  * @author	   Ushahidi Team <team@ushahidi.com> 
- * @category   plugins
+ * @category   Controllers
  * @package    Ushahidi - https://github.com/ushahidi/Ushahidi_Web
  * @subpackage DSSG
  * @copyright  Ushahidi - http://www.ushahidi.com
@@ -18,9 +18,14 @@ class Dssg_Settings_Controller extends Admin_Controller {
 	
 	public function index()
 	{
-		$this->template->bind('content', $settings_view);
+		$this->template->set('this_page', 'addons')
+			->bind('content', $content);
 
-		$settings_view = View::factory('admin/dssg/settings')
+		$content = View::factory('admin/addons/plugin_settings')
+			->set('title', 'DSSG Plugin Settings')
+			->bind('settings_form', $settings_form);
+		
+		$settings_form = View::factory('admin/dssg/settings')
 			->bind('form', $form)
 			->bind('form_error', $form_error)
 			->bind('form_saved', $form_saved);
@@ -29,15 +34,27 @@ class Dssg_Settings_Controller extends Admin_Controller {
 		$form_error = FALSE;
 		$form_saved = FALSE;
 		
+		$dssg_api = DSSG_Api::instance();
+		
 		if (request::method() == 'post')
 		{
 			// Validation
+			$api_url = $this->input->post('dssg_api_url');
+			if (valid::url($api_url))
+			{
+				// Register the deployment
+				$dssg_api->register_deployment($api_url);
 			
-			// Register the deployment
-			
-			// Save the setting
-			
-			$form_saved = TRUE;
+				$form_saved = TRUE;
+			}
+			else
+			{
+				$form_error = TRUE;
+			}
+		}
+		else
+		{
+			$form['dssg_api_url'] = Settings_Model::get_setting('dssg_api_url');
 		}
 	}
 	
