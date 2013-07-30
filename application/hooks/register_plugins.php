@@ -38,7 +38,7 @@ class register_plugins {
 		// Hook into routing
 		if (Kohana::config('config.installer_check') == FALSE OR file_exists(DOCROOT."application/config/database.php"))
 		{
-			Event::add_after('system.routing', array('Router', 'find_uri'), array($this, 'register'));
+			Event::add('system.ready', array($this, 'register'));
 		}
 
 		// Set Table Prefix
@@ -59,7 +59,7 @@ class register_plugins {
 		{
 			$plugins[$plugin->plugin_name] = PLUGINPATH.$plugin->plugin_name;
 		}
-
+		
 		// Now set the plugins
 		Kohana::config_set('core.modules', array_merge(Kohana::config('core.modules'), $plugins));
 
