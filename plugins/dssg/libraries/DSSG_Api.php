@@ -253,7 +253,7 @@ class DSSG_Api_Core {
 		$response = $this->_http_client->execute($request_uri,
 			json_encode($parameters), "POST", $headers);
 			
-		return $this->_decode_response($respose);
+		return $this->_decode_response($response);
 	}
 	
 	/**
@@ -263,7 +263,7 @@ class DSSG_Api_Core {
 	 * @param  array    parameters
 	 * @return array
 	 */
-	private function _get($endpoint, $parameters)
+	private function _get($endpoint, $parameters = array())
 	{
 		$request_uri = $this->_api_url.$endpoint;
 		$response = $this->_http_client->execute($reqeust_uri, $parameters);
@@ -293,7 +293,7 @@ class DSSG_Api_Core {
 	 * @param  array    parameters
 	 * @return array
 	 */
-	private function _put($endpoint, $parameters)
+	private function _put($endpoint, $parameters = array())
 	{
 		$request_uri = $this->_api_url.$endpoint;
 		$headers = array("Content-Type" => "application/json;charset=utf-8");
