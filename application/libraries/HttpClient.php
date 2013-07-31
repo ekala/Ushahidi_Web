@@ -46,7 +46,7 @@ class HttpClient_Core {
 			CURLOPT_ENCODING => 'gzip,deflate',
 			
 			// Disable SSL verification
-			CURLOPT_SSL_VERIFYPEER => FALSE,
+			CURLOPT_SSL_VERIFYPEER => TRUE,
 			
 			CURLOPT_SSL_VERIFYHOST => 2
 		);
@@ -142,8 +142,9 @@ class HttpClient_Core {
 			case "PATCH":
 				if (is_array($parameters) AND ! empty($parameters))
 				{
-					$this->_options[CURLOPT_POSTFIELDS] = http_build_query($parameters, NULL, "&");
+					$parameters = http_build_query($parameters, NULL, "&");
 				}
+				$this->_options[CURLOPT_POSTFIELDS] = $parameters;
 				break;
 				
 			case "GET":
