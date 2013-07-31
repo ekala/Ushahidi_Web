@@ -253,7 +253,7 @@ class DSSG_Api_Core {
 		$response = $this->_http_client->execute($request_uri,
 			json_encode($parameters), "POST", $headers);
 			
-		return $response;
+		return $this->_decode_response($respose);
 	}
 	
 	/**
@@ -266,7 +266,9 @@ class DSSG_Api_Core {
 	private function _get($endpoint, $parameters)
 	{
 		$request_uri = $this->_api_url.$endpoint;
-		return $this->_http_client->execute($reqeust_uri, $parameters);
+		$response = $this->_http_client->execute($reqeust_uri, $parameters);
+		
+		return $this->_decode_response($response);
 	}
 
 	/**
@@ -279,7 +281,9 @@ class DSSG_Api_Core {
 	private function _delete($endpoint)
 	{
 		$request_uri = $this->_api_url.$endpoint;
-		$this->_http_client->execute($reqeust_uri, NULL, "DELETE");
+		$response = $this->_http_client->execute($reqeust_uri, NULL, "DELETE");
+		
+		return $this->_decode_response($response);
 	}
 	
 	/**
@@ -294,7 +298,9 @@ class DSSG_Api_Core {
 		$request_uri = $this->_api_url.$endpoint;
 		$headers = array("Content-Type" => "application/json;charset=utf-8");
 		
-		return $this->_http_client->execute($request_uri, json_encode($parameters), "PUT", $headers);
+		$response = $this->_http_client->execute($request_uri, json_encode($parameters), "PUT", $headers);
+		
+		return $this->_decode_response($response);
 	}
 	
 	/**
@@ -309,6 +315,22 @@ class DSSG_Api_Core {
 		$request_uri = $this->_api_url.$endpoint;
 		$headers = array("Content-Type" => "application/json;charset=utf-8");
 		
-		return $this->_http_client->execute($request_uri, json_encode($parameters), "PATCH", $headers);
+		$response = $this->_http_client->execute($request_uri, json_encode($parameters), "PATCH", $headers);
+		
+		return $this->_decode_response($response);
+	}
+	
+	/**
+	 * Decodes the given $response as a JSON object and returns the resulting array. If
+	 * the decoding fails, the response is returned as is
+	 *
+	 * @param   string  response
+	 * @return  mixed   Array if the JSON response is successfully decoded, string otherwise
+	 */
+	private function _decode_response($response)
+	{
+		$json = json_decode($response, TRUE);
+		
+		return ($json === NULL) ? $response : $json;
 	}
 }
