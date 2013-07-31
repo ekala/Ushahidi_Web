@@ -27,15 +27,15 @@ class DSSG_Api_Test extends PHPUnit_Framework_TestCase {
 	public function setUp()
 	{
 		// Create a DSSG_Api object
-		$this->_dssg_api = DSSG_Api::instance('http://annotate.ushahididev.com');
+		$this->_dssg_api = DSSG_Api::instance('http://annotate.ushahididev.com/v1');
 
 		// Get the base API URI
 		$this->_api_url = $this->_dssg_api->api_url();
 
 		// Create a mock for the HttpClient
-		$this->_http_client = $this->getMock('HttpClient');
+		$this->_mock_http_client = $this->getMock('HttpClient');
 		
-		$this->_dssg_api->http_client($this->_http_client);
+		$this->_dssg_api->http_client($this->_mock_http_client);
 		
 		$this->_text_parameter = json_encode(array('text' => $this->_text));
 	}
@@ -47,7 +47,7 @@ class DSSG_Api_Test extends PHPUnit_Framework_TestCase {
 	{
 		// Set the expectation for the execute() method to be
 		// called only once
-		$this->_http_client->expects($this->once())
+		$this->_mock_http_client->expects($this->once())
 			->method('execute')
 			->with($this->equalTo($this->_api_url."/private_info"),
 			       $this->_text_parameter,
@@ -62,7 +62,7 @@ class DSSG_Api_Test extends PHPUnit_Framework_TestCase {
 	 */
 	public function testGetLanguage()
 	{
-		$this->_http_client->expects($this->once())
+		$this->_mock_http_client->expects($this->once())
 			->method('execute')
 			->with($this->equalTo($this->_api_url.'/language'),
 			       $this->_text_parameter,
@@ -77,7 +77,7 @@ class DSSG_Api_Test extends PHPUnit_Framework_TestCase {
 	 */
 	public function testGetLocations()
 	{
-		$this->_http_client->expects($this->once())
+		$this->_mock_http_client->expects($this->once())
 			->method('execute')
 			->with($this->equalTo($this->_api_url.'/locations'),
 			       $this->_text_parameter,
@@ -93,7 +93,7 @@ class DSSG_Api_Test extends PHPUnit_Framework_TestCase {
 	 */
 	public function testGetEntities()
 	{
-		$this->_http_client->expects($this->once())
+		$this->_mock_http_client->expects($this->once())
 			->method('execute')
 			->with($this->equalTo($this->_api_url.'/entities'),
 			       $this->_text_parameter,
@@ -101,6 +101,5 @@ class DSSG_Api_Test extends PHPUnit_Framework_TestCase {
 			       $this->_json_header);
 
 		$this->_dssg_api->entities($this->_text);
-		
-	}
+	}	
 }
