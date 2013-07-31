@@ -150,7 +150,7 @@ class DSSG_Api_Core {
 		// TODO: Only save if a 200 status and deployment id have been
 		// returned
 		// Save plugin settings
-		Settings_Model::save_setting('dssg_api_url', $api_url);		
+		Settings_Model::save_setting('dssg_api_url', $api_url);
 		// Settings_Model::save_setting('dssg_deployment_id', $response['deployment_id']);
 	}
 	
@@ -257,7 +257,11 @@ class DSSG_Api_Core {
 	}
 	
 	/**
-	 * Sends a HTTP GET request to the specified endpoint
+	 * Sends a HTTP GET request
+	 *
+	 * @param  string   endpoint
+	 * @param  array    parameters
+	 * @return array
 	 */
 	private function _get($endpoint, $parameters)
 	{
@@ -266,7 +270,11 @@ class DSSG_Api_Core {
 	}
 
 	/**
-	 * Sends a HTTP DELETE request to the specified $endpoint
+	 * Sends a HTTP DELETE request
+	 *
+	 * @param  string   endpoint
+	 * @param  array    parameters
+	 * @return array
 	 */
 	private function _delete($endpoint)
 	{
@@ -275,7 +283,11 @@ class DSSG_Api_Core {
 	}
 	
 	/**
-	 * Sends a HTTP PUT request to the specified $endpoint
+	 * Sends a HTTP PUT request
+	 *
+	 * @param  string   endpoint
+	 * @param  array    parameters
+	 * @return array
 	 */
 	private function _put($endpoint, $parameters)
 	{
@@ -283,5 +295,20 @@ class DSSG_Api_Core {
 		$headers = array("Content-Type" => "application/json;charset=utf-8");
 		
 		return $this->_http_client->execute($request_uri, json_encode($parameters), "PUT", $headers);
+	}
+	
+	/**
+	 * Sends a HTTP PATCH request
+	 *
+	 * @param   string  endpoint
+	 * @param   array   parameter  Request parameters
+	 * @return  array
+	 */
+	private function _patch($endpint, $parameters)
+	{
+		$request_uri = $this->_api_url.$endpoint;
+		$headers = array("Content-Type" => "application/json;charset=utf-8");
+		
+		return $this->_http_client->execute($request_uri, json_encode($parameters), "PATCH", $headers);
 	}
 }
