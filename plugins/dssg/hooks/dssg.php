@@ -39,11 +39,20 @@ class dssg {
 		// Register plugin hooks
 		
 		// When a report is being viewed/edited
+		Event::add('ushahidi_action.header_scripts', array($this, 'add_header_scripts'));
 		Event::add('ushahidi_action.report_display_media', array($this, 'suggest_language'));
 		Event::add('ushahidi_action.report_display_media', array($this, 'suggest_entities'));
 		
 		// When a message has been opened
 		Event::add('', array($this, 'similar_messages'));
+	}
+	
+	/**
+	 * JavaScript and CSS for the DSSG plugin
+	 */
+	public function add_header_scripts()
+	{
+		View::factory('media/css/dssg')->render(TRUE);
 	}
 	
 	/**

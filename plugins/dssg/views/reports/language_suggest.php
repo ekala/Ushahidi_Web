@@ -1,6 +1,6 @@
-<div class="report-meta">
-	<span>
-		<?php echo Kohana::lang('ui_main.language').':'; ?>
+<div class="report-meta">	
+	<?php echo Kohana::lang('dssg.ui.report_language'); ?>
+	<span class="report-language">
 		<?php echo locale_get_display_language($language, 'en'); ?>
 	</span>
 </div>
