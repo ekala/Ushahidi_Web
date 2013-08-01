@@ -329,7 +329,15 @@ class DSSG_Api_Core {
 	 */
 	private function _decode_response($response)
 	{
-		$json = is_array($response) ? json_decode($response, TRUE) : array();
+		try
+		{
+			$json = json_decode($response, TRUE);
+		}
+		catch (Exception $e)
+		{
+			$json = array();
+			Kohana::log('error', $e->getMessage());
+		}
 		
 		return ($json === NULL) ? $response : $json;
 	}
