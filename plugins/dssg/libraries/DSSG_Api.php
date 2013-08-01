@@ -329,7 +329,7 @@ class DSSG_Api_Core {
 	 */
 	private function _decode_response($response)
 	{
-		$json = json_decode($response, TRUE);
+		$json = is_array($response) ? json_decode($response, TRUE) : array();
 		
 		return ($json === NULL) ? $response : $json;
 	}

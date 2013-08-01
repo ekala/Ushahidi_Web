@@ -66,15 +66,18 @@ class dssg {
 		
 		// TODO: Check for cached language suggestions for this report
 		$response = $this->_dssg_api->language($report_description);
-		list($confidence, $language) = array_values($response);
+		if ( ! empty($response))
+		{
+			list($confidence, $language) = array_values($response);
 		
-		// TODO: Store the language locally
+			// TODO: Store the language locally
 		
-		// Display the suggested language
-		View::factory('reports/language_suggest')
-			->bind('language', $language)
-			->bind('confidence', $confidence)
-			->render(TRUE);
+			// Display the suggested language
+			View::factory('reports/language_suggest')
+				->bind('language', $language)
+				->bind('confidence', $confidence)
+				->render(TRUE);
+		}
 		
 	}
 	
@@ -88,11 +91,14 @@ class dssg {
 		
 		// Get the entities
 		$response = $this->_dssg_api->entities($report_description);
-		$entities = $response['entities'];
+		if ( ! empty($response))
+		{
+			$entities = $response['entities'];
 
-		View::factory('reports/entity_suggest')
-			->bind('entities', $entities)
-			->render(TRUE);
+			View::factory('reports/entity_suggest')
+				->bind('entities', $entities)
+				->render(TRUE);
+		}
 	}
 }
 
