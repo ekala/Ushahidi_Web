@@ -14,14 +14,12 @@ $lang = array(
 		
 		'install' => 'Download and install the DSSG Python Application - https://github.com/dssg/dssg-ushahidi',
 		
-		'location_mentions' => 'Other Locations',
-		
-		'organization_mentions' => 'Companies/Organizations',
-		
 		'report_language' => 'This report is in ',
+		
+		'location_mentions' => 'Mentioned Locations',
 		
 		'people_mentions' => 'People',
 		
-		'useful_info' => 'Possible useful information contained in this report'
+		'tags' => 'Tags'
 	),
 );

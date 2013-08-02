@@ -87,18 +87,34 @@ class dssg {
 	public function suggest_entities()
 	{
 		$incident_id = Event::$data;
-		$report_description = ORM::factory('incident', $incident_id)->incident_description;
-		
-		// Get the entities
-		$response = $this->_dssg_api->entities($report_description);
-		if ( ! empty($response))
-		{
-			$entities = $response['entities'];
+		$incident = ORM::factory('incident', $incident_id);
 
-			View::factory('reports/entity_suggest')
-				->bind('entities', $entities)
-				->render(TRUE);
+		// Get the entities
+		$entity_response = $this->_dssg_api->entities($incident->incident_description);
+		$locations_response= $this->_dssg_api->locations($incident->incident_description);
+
+		if ( ! empty($entity_response))
+		{
+			$tags = array();
+			foreach ($entity_response['entities'] as $type => $entities)
+			{
+				$tags = array_merge($tags, $entities);
+			}
 		}
+		
+		if ( ! empty($locations_response))
+		{
+			$locations = array();
+			foreach ($locations_response['locations'] as $type => $values)
+			{
+				$locations = array_merge($locations, $values);
+			}
+		}
+		View::factory('reports/entity_suggest')
+			->bind('tags', $tags)
+			->bind('locations', $locations)
+			->render(TRUE);
+		
 	}
 }
 
