@@ -38,10 +38,14 @@ class dssg {
 	{
 		// Register plugin hooks
 		
+		// Frontend
 		// When a report is being viewed/edited
 		Event::add('ushahidi_action.header_scripts', array($this, 'add_header_scripts'));
-		Event::add('ushahidi_action.report_display_media', array($this, 'suggest_language'));
-		Event::add('ushahidi_action.report_display_media', array($this, 'suggest_entities'));
+		Event::add('ushahidi_action.report_display_media', array($this, 'report_metadata'));
+		
+		// TODO: Admin console events
+		// Event::add('', array($this, 'report_metadata_admin'));
+		// Event::add('', array($this, 'similar_messages'));
 		
 		// When a message has been opened
 		Event::add('', array($this, 'similar_messages'));
@@ -56,42 +60,47 @@ class dssg {
 	}
 	
 	/**
-	 * Gets the possible languages that a report is in
+	 * Displays the report metadata - language, location and entities
 	 */
-	public function suggest_language()
+	public function report_metadata()
 	{
 		$incident_id = Event::$data;
 		
 		$report_description = ORM::factory('incident', $incident_id)->incident_description;
 		
+		list($language, $tags, $locations) = $this->_extract_metadata($report_description);
+		
+		View::factory('reports/metadata')
+			->bind('language', $language)
+			->bind('entities', $tags)
+			->bind('locations', $locations)
+			->render(TRUE);
+	}
+	/**
+	 * Extracts the report metadata - language, entities and locations
+	 */
+	private function _extract_metadata($report_description)
+	{
 		// TODO: Check for cached language suggestions for this report
-		$response = $this->_dssg_api->language($report_description);
-		if ( ! empty($response))
-		{
-			list($confidence, $language) = array_values($response);
 		
-			// TODO: Store the language locally
+		$language = $this->_dssg_api->language($report_description);
+		$tags = $this->_get_tags($report_description);
+		$locations = $this->_get_locations($report_description);
 		
-			// Display the suggested language
-			View::factory('reports/language_suggest')
-				->bind('language', $language)
-				->bind('confidence', $confidence)
-				->render(TRUE);
-		}
-		
+		return array($language, $tags, $locations);
 	}
 	
 	/**
 	 * Gets the entities contained in the report
+	 *
+	 * @param  string  report_description
+	 * @return array   List of people and organization names
 	 */
-	public function suggest_entities()
+	private function _get_tags($report_description)
 	{
-		$incident_id = Event::$data;
-		$incident = ORM::factory('incident', $incident_id);
-
 		// Get the entities
-		$entity_response = $this->_dssg_api->entities($incident->incident_description);
-		$locations_response= $this->_dssg_api->locations($incident->incident_description);
+		$entity_response = $this->_dssg_api->entities($report_description);
+		$tags  = array();
 
 		if ( ! empty($entity_response))
 		{
@@ -102,19 +111,29 @@ class dssg {
 			}
 		}
 		
+		return $tags;
+	}
+	
+	/**
+	 * Returns the names of locations contained in the specified text
+	 *
+	 * @param   string  report_description
+	 * @param   array   List of location names
+	 */
+	private function _get_locations($report_description)
+	{
+		$locations_response= $this->_dssg_api->locations($report_description);
+		
+		$locations = array();
 		if ( ! empty($locations_response))
 		{
-			$locations = array();
 			foreach ($locations_response['locations'] as $type => $values)
 			{
 				$locations = array_merge($locations, $values);
 			}
 		}
-		View::factory('reports/entity_suggest')
-			->bind('tags', $tags)
-			->bind('locations', $locations)
-			->render(TRUE);
 		
+		return $locations;
 	}
 }
 

@@ -1,5 +1,15 @@
-<?php if ( ! empty($locations) OR ! empty($tags)): ?>
+<?php if ( ! empty($locations) OR ! empty($tags)  OR ! empty($language)): ?>
 <div class="report-meta">
+	
+	<?php if (! empty($language)): ?>
+	<div class="report-meta-section">
+		<?php echo Kohana::lang('dssg.ui.report_language'); ?>
+		<span class="report-language">
+			<?php echo locale_get_display_language($language['language'], 'en'); ?>
+		</span>
+	</div>
+	<?php endif; ?>
+
 	<?php if ( ! empty($tags)): ?>
 	<div class="report-meta-section">
 		<span class="section-label">
