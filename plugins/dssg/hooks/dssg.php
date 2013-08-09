@@ -40,11 +40,23 @@ class dssg {
 		
 		// Frontend
 		// When a report is being viewed/edited
-		Event::add('ushahidi_action.header_scripts', array($this, 'add_header_scripts'));
+		$current_uri = router::$current_uri;
+		if (preg_match('/^(admin\/)\S+/', $current_uri))
+		{
+			Event::add('ushahidi_action.header_scripts_admin', array($this, 'add_header_scripts'));
+		}
+		else
+		{
+			Event::add('ushahidi_action.header_scripts', array($this, 'add_header_scripts'));
+		}
+
+		// When a report is viewed on the frontend
 		Event::add('ushahidi_action.report_display_media', array($this, 'report_metadata'));
+
+		// When a report is opened on the admin console
+		Event::add('ushahidi_action.report_pre_form_admin', array($this, 'report_metadata_admin'));
 		
-		// TODO: Admin console events
-		// Event::add('', array($this, 'report_metadata_admin'));
+		// TODO: When a message is opened
 		// Event::add('', array($this, 'similar_messages'));
 		
 		// When a message has been opened
@@ -163,6 +175,25 @@ class dssg {
 		$message = Event::$data;
 		Kohana::log('info', sprintf('Posting message % to the API', $message->id));
 		$this->_dssg_api->add_message($message->id, $message->message);
+	}
+	
+	/**
+	 * Event hook for displaying report metadata on the admin
+	 * console
+	 */
+	public function report_metadata_admin()
+	{
+		$incident_id = Event::$data;
+		$incident = ORM::factory('incident', $incident_id);
+		
+		list($language, $tags, $locations) = $this->_extract_metadata($incident->incident_description);
+		
+		// Display the metadata
+		View::factory('admin/reports/metadata')
+			->bind('language', $language)
+			->bind('tags', $tags)
+			->bind('locations', $locations)
+			->render(TRUE);
 	}
 }
 
