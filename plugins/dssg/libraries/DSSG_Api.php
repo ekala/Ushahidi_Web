@@ -351,7 +351,7 @@ class DSSG_Api_Core {
 	 * @param  string description Report body/description
 	 * @return aray
 	 */
-	puublic function add_report($id, $title, $description)
+	public function add_report($id, $title, $description)
 	{
 		$parameters = array(
 			'origin_report_id' => $id,
