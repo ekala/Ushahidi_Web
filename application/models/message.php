@@ -21,4 +21,15 @@ class Message_Model extends ORM
 	
 	// Database table name
 	protected $table_name = 'message';
+	
+	public function save()
+	{
+		$is_new = ! $this->loaded;
+		parent::save();
+
+		if ($is_new)
+		{
+			Event::run('ushahidi_action.message_new', $this);
+		}
+	}
 }

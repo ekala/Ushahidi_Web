@@ -48,7 +48,13 @@ class dssg {
 		// Event::add('', array($this, 'similar_messages'));
 		
 		// When a message has been opened
-		Event::add('', array($this, 'similar_messages'));
+		// Event::add('', array($this, 'similar_messages'));
+		
+		// When a new report is created
+		Event::add('ushahidi_action.report_new', array($this, 'add_report'));
+		
+		// When a new message is created
+		Event::add('ushahidi_action.message_new', array($this, 'add_message'));
 	}
 	
 	/**
@@ -134,6 +140,29 @@ class dssg {
 		}
 		
 		return $locations;
+	}
+	
+	/**
+	 * This method is called when a new report is created via 
+	 * Incident_Model::save()
+	 */
+	public function add_report()
+	{
+		$incident = Event::$data;
+
+		Kohana::log('info', sprintf('Posting report %d to the API', $incident->id));
+		$this->_dssg_api->add_report($incident->id, $incident->incident_title, $incident->incident_description);
+	}
+	
+	/**
+	 * This method is called when a new message is saved to the database
+	 * via Message_Model::save()
+	 */
+	public function add_message()
+	{
+		$message = Event::$data;
+		Kohana::log('info', sprintf('Posting message % to the API', $message->id));
+		$this->_dssg_api->add_message($message->id, $message->message);
 	}
 }
 

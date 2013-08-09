@@ -123,8 +123,9 @@ class DSSG_Api_Core {
 			else
 			{
 				$catgeories[] = array(
-					'id' => $category->id,
-					'name'=> $category->category_title
+					'origin_category_id' => $category->id,
+					'origin_parent_id' => $category->parent_id,
+					'title'=> $category->category_title
 				);
 			}
 		}
@@ -135,7 +136,7 @@ class DSSG_Api_Core {
 			'name' => Settings_Model::get_setting('site_name'),
 			
 			// URL of this deployment
-			'deployment_url' => url::base(TRUE, TRUE),
+			'url' => url::base(TRUE, TRUE),
 			
 			// Categories in the deployment
 			'categories' => $categories
@@ -340,5 +341,36 @@ class DSSG_Api_Core {
 		}
 		
 		return ($json === NULL) ? $response : $json;
+	}
+
+	/**
+	 * Posts a report to the DSSG API
+	 *
+	 * @param  id     int  The database ID of the report
+	 * @param  string title Report title
+	 * @param  string description Report body/description
+	 * @return aray
+	 */
+	puublic function add_report($id, $title, $description)
+	{
+		$parameters = array(
+			'origin_report_id' => $id,
+			'title' => $title,
+			'description' => $description
+		);
+		
+		return $this->_post('/reports/'.$this->_deployment_id, $parameters);
+	}
+
+	/**
+	 * Posts a message to the DSSG API
+	 *
+	 * @param int    id The database ID of the message
+	 * @param string content The content of the message
+	 */
+	public function add_message($id, $content)
+	{
+		$parameters = array('origin_message_id' => $id, 'content' => $content);
+		return $this->_post('/messages/'.$this->_deployment_id, $parameters);
 	}
 }

@@ -577,10 +577,17 @@ class Incident_Model extends ORM {
 	 */
 	public function save()
 	{
-		// Fire an event on every save
+		// Fire an event on before save
 		Event::run('ushahidi_action.report_save', $this);
 		
+		$is_new = ! $this->loaded;
 		parent::save();
+		
+		// Fire an event after save
+		if ($is_new)
+		{
+			Event::run('ushahidi_action.report_new', $this);
+		}
 	}
 
 }
