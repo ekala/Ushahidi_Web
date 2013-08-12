@@ -37,17 +37,20 @@ class dssg {
 	public function add()
 	{
 		// Register plugin hooks
-		
-		// Frontend
-		// When a report is being viewed/edited
+
+		// Get the current URI
 		$current_uri = router::$current_uri;
-		if (preg_match('/^(admin\/)\S+/', $current_uri))
-		{
-			Event::add('ushahidi_action.header_scripts_admin', array($this, 'add_header_scripts'));
-		}
-		else
+
+		// When a report is being viewed on the frontend
+		if (preg_match('/^reports\/view\/\d+$/', $current_uri))
 		{
 			Event::add('ushahidi_action.header_scripts', array($this, 'add_header_scripts'));
+		}
+
+		// When a report is being edited
+		if (preg_match('/^admin\/reports\/edit\/\d+$/', $current_uri))
+		{
+			Event::add('ushahidi_action.header_scripts_admin', array($this, 'add_header_scripts'));
 		}
 
 		// When a report is viewed on the frontend
