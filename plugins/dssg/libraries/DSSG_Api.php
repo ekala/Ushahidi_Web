@@ -110,6 +110,12 @@ class DSSG_Api_Core {
 	 */
 	public function register_deployment($api_url)
 	{
+		// Check if the specified uri has already been registered
+		// Prevent double registration of the same API url
+		$current_url = trim(Settings_Model::get_setting('dssg_api_url'));
+		if (md5(strtolower($current_url)) === md5(strtolower($api_url)))
+			return;
+
 		// Fetch the categories
 		// Fields for each entry: id, name, children (id, name)
 		$categories = array();
@@ -309,17 +315,22 @@ class DSSG_Api_Core {
 	/**
 	 * Posts a report to the DSSG API
 	 *
-	 * @param  id     int  The database ID of the report
-	 * @param  string title Report title
-	 * @param  string description Report body/description
-	 * @return aray
+	 * @param  Incident_Model incident The incident to be posted
+	 * @return array
 	 */
-	public function add_report($id, $title, $description)
+	public function add_report($incident)
 	{
+		$categories = array();
+		foreach ($incident->category as $cat)
+		{
+			$categories[] = $cat->id;
+		}
+
 		$parameters = array(
-			'origin_report_id' => $id,
-			'title' => $title,
-			'description' => $description
+			'origin_report_id' => $incident->id,
+			'title' => $incident->title,
+			'description' => $incident->description,
+			'categories' => $categories
 		);
 		
 		return $this->_post('/reports/'.$this->_deployment_id, $parameters);
