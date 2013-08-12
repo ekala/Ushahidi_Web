@@ -115,19 +115,11 @@ class DSSG_Api_Core {
 		$categories = array();
 		foreach (ORM::factory('category')->where('category_visible', 1)->find_all() as $category)
 		{
-			if ($category->parent_id > 0)
-			{
-				// Add child to parent
-				$this->_add_child($categories, $category);
-			}
-			else
-			{
-				$catgeories[] = array(
-					'origin_category_id' => $category->id,
-					'origin_parent_id' => $category->parent_id,
-					'title'=> $category->category_title
-				);
-			}
+			$categories[] = array(
+				'origin_category_id' => $category->id,
+				'origin_parent_id' => $category->parent_id,
+				'title'=> $category->category_title
+			);
 		}
 
 		// Request parameters
@@ -144,7 +136,7 @@ class DSSG_Api_Core {
 		
 		// Set $_api_url
 		$this->_api_url = $api_url;
-		
+
 		// Send request to register deployment
 		$response = $this->_post("/deployments", $parameters);
 		
@@ -152,38 +144,9 @@ class DSSG_Api_Core {
 		// returned
 		// Save plugin settings
 		Settings_Model::save_setting('dssg_api_url', $api_url);
-		// Settings_Model::save_setting('dssg_deployment_id', $response['deployment_id']);
+		Settings_Model::save_setting('dssg_deployment_id', $response['id']);
 	}
-	
-	/**
-	 * Adds the child category specified in $category to
-	 * its respective parent in the $categories array
-	 *
-	 * @param array categories
-	 * @param mixed category
-	 */
-	private function _add_child($categories, $category)
-	{
-		foreach ($category as & $entry)
-		{
-			if ($entry['id'] === $category->parent_id)
-			{
-				if ( ! array_key_exists('children', $entry))
-				{
-					$entry['children'] = array();
-				}
-				
-				// Add child entry
-				$entry['children'][] = array(
-					'id' => $category->id,
-					'name' => $category->category_title
-				);
-				
-				break;
-			}
-		}
-	}
-	
+
 	/**
 	 * Gets messages that are similar to the specified text
 	 * @param  string $text
