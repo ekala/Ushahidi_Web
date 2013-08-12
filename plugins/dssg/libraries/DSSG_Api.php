@@ -134,7 +134,7 @@ class DSSG_Api_Core {
 			'name' => Settings_Model::get_setting('site_name'),
 			
 			// URL of this deployment
-			'url' => url::base(TRUE, TRUE),
+			'url' => url::base(),
 			
 			// Categories in the deployment
 			'categories' => $categories
@@ -145,12 +145,20 @@ class DSSG_Api_Core {
 
 		// Send request to register deployment
 		$response = $this->_post("/deployments", $parameters);
-		
-		// TODO: Only save if a 200 status and deployment id have been
-		// returned
-		// Save plugin settings
-		Settings_Model::save_setting('dssg_api_url', $api_url);
-		Settings_Model::save_setting('dssg_deployment_id', $response['id']);
+
+		if ($response)
+		{
+			Settings_Model::save_setting('dssg_api_url', $api_url);
+			Settings_Model::save_setting('dssg_deployment_id', $response['id']);
+			
+			$this->_deployment_id = $response['id'];
+
+			// Add all the reports
+			foreach (ORM::factory('incident')->find_all() as $incident)
+			{
+				$this->add_report($incident);
+			}
+		}
 	}
 
 	/**
@@ -325,15 +333,15 @@ class DSSG_Api_Core {
 		{
 			$categories[] = $cat->id;
 		}
-
+		
 		$parameters = array(
 			'origin_report_id' => $incident->id,
-			'title' => $incident->title,
-			'description' => $incident->description,
+			'title' => $incident->incident_title,
+			'description' => $incident->incident_description,
 			'categories' => $categories
 		);
 		
-		return $this->_post('/reports/'.$this->_deployment_id, $parameters);
+		return $this->_post('/deployments/'.$this->_deployment_id.'/reports', $parameters);
 	}
 
 	/**
@@ -345,6 +353,6 @@ class DSSG_Api_Core {
 	public function add_message($id, $content)
 	{
 		$parameters = array('origin_message_id' => $id, 'content' => $content);
-		return $this->_post('/messages/'.$this->_deployment_id, $parameters);
+		return $this->_post('/deployments/'.$this->_deployment_id.'/messages', $parameters);
 	}
 }
