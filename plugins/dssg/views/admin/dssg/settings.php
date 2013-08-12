@@ -24,7 +24,7 @@
 						'class' => 'text long2',
 						'placeholder' => Kohana::lang('dssg.ui.example_url')
 					);
-					echo form::input($attributes, $form['dssg_api_url']); 
+					echo form::input($attributes, $form['dssg_api_url']);
 				?>
 			</div>
 		</td>

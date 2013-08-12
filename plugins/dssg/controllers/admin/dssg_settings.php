@@ -44,8 +44,8 @@ class Dssg_Settings_Controller extends Admin_Controller {
 			{
 				// Register the deployment
 				$dssg_api->register_deployment($api_url);
-			
 				$form_saved = TRUE;
+				$form['dssg_api_url'] = $api_url;
 			}
 			else
 			{
