@@ -66,7 +66,7 @@ class dssg {
 		// Event::add('', array($this, 'similar_messages'));
 		
 		// When a new report is created
-		Event::add('ushahidi_action.report_new', array($this, 'add_report'));
+		Event::add('ushahidi_action.report_add', array($this, 'add_report'));
 		
 		// When a new message is created
 		Event::add('ushahidi_action.message_new', array($this, 'add_message'));
@@ -166,7 +166,7 @@ class dssg {
 		$incident = Event::$data;
 
 		Kohana::log('info', sprintf('Posting report %d to the API', $incident->id));
-		$this->_dssg_api->add_report($incident->id, $incident->incident_title, $incident->incident_description);
+		$this->_dssg_api->add_report($incident);
 	}
 	
 	/**
