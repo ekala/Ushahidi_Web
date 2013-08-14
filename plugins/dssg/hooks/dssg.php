@@ -90,10 +90,9 @@ class dssg {
 		$report_description = ORM::factory('incident', $incident_id)->incident_description;
 		
 		list($language, $tags, $locations) = $this->_extract_metadata($report_description);
-		
 		View::factory('reports/metadata')
 			->bind('language', $language)
-			->bind('entities', $tags)
+			->bind('tags', $tags)
 			->bind('locations', $locations)
 			->render(TRUE);
 	}
@@ -191,6 +190,9 @@ class dssg {
 		
 		list($language, $tags, $locations) = $this->_extract_metadata($incident->incident_description);
 		
+		// Get similar reports
+		$similar_reports = $this->_dssg_api->similar_reports($incident);
+
 		// Display the metadata
 		View::factory('admin/reports/metadata')
 			->bind('language', $language)

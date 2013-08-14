@@ -35,10 +35,15 @@
 		background-color: #DBDBDB;
 		font-weight: bold;
 		margin-right: 5px;
+		padding: 4px;
+		float: left;
 	}
 	
 	.report-meta span.report-tag {
 		text-transform: none;
 		background-color: #2E8AB8;
+		margin: 2px;
+		padding: 3px;
+		float: left;
 	}
 </style>

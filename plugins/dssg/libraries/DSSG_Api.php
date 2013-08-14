@@ -355,4 +355,21 @@ class DSSG_Api_Core {
 		$parameters = array('origin_message_id' => $id, 'content' => $content);
 		return $this->_post('/deployments/'.$this->_deployment_id.'/messages', $parameters);
 	}
+	
+	/**
+	 * Gets and returns the list of reports that are similar to the specified
+	 * incident
+	 *
+	 * @param  Incident_Model The incident to use to look for duplicates
+	 * @return array
+	 */
+	public function similar_reports($incident)
+	{
+		$parameters = array(
+			'text' => $incident->incident_description,
+			'count' => 10
+		);
+		
+		return $this->_post('/deployments/'.$this->_deployment_id.'/similar_reports', $parameters);
+	}
 }
