@@ -27,7 +27,8 @@
 		text-transform: uppercase;
 	}
 	
-	.report-meta .report-language {
+	.report-meta .report-language,
+	span.similar-reports-header {
 		background-color: #368C00;
 	}
 	
@@ -45,5 +46,40 @@
 		margin: 2px;
 		padding: 3px;
 		float: left;
+	}
+	
+	.similar-items {
+		margin: 20px 0;
+	}
+	
+	.similar-items .similar-reports-header {
+		padding: 5px 8px;
+	}
+	
+	.similar-reports-header a {
+		text-decoration: none;
+		font-weight: bold;
+		color: #FFFFFF;
+	}	
+
+	.similar-items .item-listing {
+		display: none;
+		border-radius: 3px;
+		-moz-border-radius: 3px;
+		-webkit-border-radius: 3px;
+		background-color: #EEEEEE;
+		padding:3px;
+		margin: 4px 0;
+	}
+
+	.similar-items .item-listing .similar{
+		margin: 8px 1%;
+		padding: 6px;
+		width: 95%;
+		background-color: #FFFFFF;
+	}
+	
+	.similar-items .similar-item-listing .similar h4 {
+		padding: 4px 2px !important;
 	}
 </style>

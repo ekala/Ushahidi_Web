@@ -363,11 +363,11 @@ class DSSG_Api_Core {
 	 * @param  Incident_Model The incident to use to look for duplicates
 	 * @return array
 	 */
-	public function similar_reports($incident)
+	public function similar_reports($incident, $count = 10)
 	{
 		$parameters = array(
 			'text' => $incident->incident_description,
-			'count' => 10
+			'count' => $count
 		);
 		
 		return $this->_post('/deployments/'.$this->_deployment_id.'/similar_reports', $parameters);

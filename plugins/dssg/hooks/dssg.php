@@ -45,19 +45,19 @@ class dssg {
 		if (preg_match('/^reports\/view\/\d+$/', $current_uri))
 		{
 			Event::add('ushahidi_action.header_scripts', array($this, 'add_header_scripts'));
+
+			// When a report is viewed on the frontend
+			Event::add('ushahidi_action.report_display_media', array($this, 'report_metadata'));
 		}
 
 		// When a report is being edited
 		if (preg_match('/^admin\/reports\/edit\/\d+$/', $current_uri))
 		{
 			Event::add('ushahidi_action.header_scripts_admin', array($this, 'add_header_scripts'));
+			// When a report is opened on the admin console
+			Event::add('ushahidi_action.report_pre_form_admin', array($this, 'report_metadata_admin'));
+			Event::add('ushahidi_action.report_form_admin', array($this, 'similar_reports'));
 		}
-
-		// When a report is viewed on the frontend
-		Event::add('ushahidi_action.report_display_media', array($this, 'report_metadata'));
-
-		// When a report is opened on the admin console
-		Event::add('ushahidi_action.report_pre_form_admin', array($this, 'report_metadata_admin'));
 		
 		// TODO: When a message is opened
 		// Event::add('', array($this, 'similar_messages'));
@@ -190,14 +190,27 @@ class dssg {
 		
 		list($language, $tags, $locations) = $this->_extract_metadata($incident->incident_description);
 		
-		// Get similar reports
-		$similar_reports = $this->_dssg_api->similar_reports($incident);
-
 		// Display the metadata
 		View::factory('admin/reports/metadata')
 			->bind('language', $language)
 			->bind('tags', $tags)
 			->bind('locations', $locations)
+			->render(TRUE);
+	}
+
+	/**
+	 * Event hook for display similary reports
+	 */
+	public function similar_reports()
+	{
+		$incident_id = Event::$data;
+		$incident = ORM::factory('incident', $incident_id);
+		
+		// Get similar reports
+		$similar_reports = $this->_dssg_api->similar_reports($incident, 5);
+		$reports = $similar_reports['reports'];
+		View::factory('admin/reports/similar')
+			->bind('reports', $reports)
 			->render(TRUE);
 	}
 }

@@ -16,6 +16,10 @@ $lang = array(
 		
 		'report_language' => 'This report is in ',
 		
+		'show_similar_reports' => 'Click to show/hide reports that are similar',
+
+		'similar_reports' => 'Similar Reports',
+		
 		'location_mentions' => 'Mentioned Locations',
 		
 		'people_mentions' => 'People',
