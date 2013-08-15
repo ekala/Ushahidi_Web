@@ -4,6 +4,8 @@ $lang = array(
 	'ui' => array(
 		'api_url' => 'Annoation API URL (including the version prefix)',
 		
+		'click_show_hide_reports' => 'Click to show/hide similar reports',
+		
 		'configure' => 'Configure the plugin by specifying the following information',
 		
 		'description' => 'The DSSG-Ushahdi application helps deployment managers and volunteers to speed up data processing '
@@ -16,9 +18,9 @@ $lang = array(
 		
 		'report_language' => 'This report is in ',
 		
-		'show_similar_reports' => 'Click to show/hide reports that are similar',
-
-		'similar_reports' => 'Similar Reports',
+		'show_similar_reports' => 'Show Similar Reports',
+		
+		'hide_similar_reports' => 'Hide Similar Reports',
 		
 		'location_mentions' => 'Mentioned Locations',
 		

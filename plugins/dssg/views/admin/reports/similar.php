@@ -2,8 +2,8 @@
 <div class="similar-items">
 	<span class="similar-reports-header">
 	<?php 
-		echo html::anchor("#", Kohana::lang('dssg.ui.similar_reports'), 
-			array('id' => 'toggle-similar-items', 'title' => Kohana::lang('dssg.ui.show_similar_reports'))); 
+		echo html::anchor("#", Kohana::lang('dssg.ui.show_similar_reports'), 
+			array('id' => 'toggle-similar-items', 'title' => Kohana::lang('dssg.ui.click_show_hide_reports'))); 
 	?>
 	</span>
 	<div class="item-listing">
@@ -26,10 +26,12 @@ $(document).ready(function(){
 	$("#toggle-similar-items").toggle(
 		// Show listing
 		function(e){
+			$(this).text('<?php echo Kohana::lang('dssg.ui.hide_similar_reports'); ?>');
 			$(".similar-items .item-listing").slideDown();
 		},
 		// Hide listing
 		function(e){
+			$(this).text('<?php echo Kohana::lang('dssg.ui.show_similar_reports'); ?>');
 			$(".similar-items .item-listing").slideUp();
 		});
 });
