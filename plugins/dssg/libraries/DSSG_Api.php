@@ -372,4 +372,18 @@ class DSSG_Api_Core {
 		
 		return $this->_post('/deployments/'.$this->_deployment_id.'/similar_reports', $parameters);
 	}
+	
+	/**
+	 * Gets and returns the possible categories for the specified text
+	 *
+	 * @param  string text The report text (preferably description) to use for fetching
+	 *                     the list of possible categories
+	 * @return array
+	 */
+	public function suggest_categories($text)
+	{
+		$parameters = array('text' => $text);
+		$post_url = '/deployments/'.$this->_deployment_id.'/suggest_categories';
+		return $this->_post($post_url, $parameters);
+	}
 }
