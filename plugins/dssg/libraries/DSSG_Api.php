@@ -376,13 +376,16 @@ class DSSG_Api_Core {
 	/**
 	 * Gets and returns the possible categories for the specified text
 	 *
-	 * @param  string text The report text (preferably description) to use for fetching
-	 *                     the list of possible categories
+	 * @param  Incident_Model incident The incident
 	 * @return array
 	 */
-	public function suggest_categories($text)
+	public function suggest_categories($incident)
 	{
-		$parameters = array('text' => $text);
+		$parameters = array(
+			'title' => $incident->incident_title,
+			'description' => $incident->incident_description
+		);
+
 		$post_url = '/deployments/'.$this->_deployment_id.'/suggest_categories';
 		return $this->_post($post_url, $parameters);
 	}

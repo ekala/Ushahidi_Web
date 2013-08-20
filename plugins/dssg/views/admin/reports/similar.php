@@ -11,10 +11,10 @@
 		<div class="row similar">
 			<h4><?php echo $report['title']; ?></h4>
 			<span>
-				<?php echo text::limit_chars($report['description'], 80, '...', TRUE); ?>
+				<?php echo text::limit_chars($report['description'], 80, ' ...', TRUE); ?>
 				<?php 
-					echo html::anchor("admin/reports/edit/".$report['origin_report_id'], 
-					Kohana::lang('ui_main.more'), array('class' => 'more'));
+					echo html::anchor($base_report_path.$report['origin_report_id'], 
+					Kohana::lang('ui_main.more'), array('class' => 'btn-more'));
 				?>
 			</span>
 		</div>

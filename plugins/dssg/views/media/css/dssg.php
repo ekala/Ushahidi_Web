@@ -52,6 +52,10 @@
 		margin: 20px 0;
 	}
 	
+	.similar-items h4 {
+		font-size: 14px;
+	}
+
 	.similar-items .similar-reports-header {
 		padding: 5px 8px;
 	}

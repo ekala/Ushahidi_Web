@@ -48,6 +48,7 @@ class dssg {
 
 			// When a report is viewed on the frontend
 			Event::add('ushahidi_action.report_display_media', array($this, 'report_metadata'));
+			Event::add('ushahidi_action.report_extra', array($this, 'similar_reports'));
 		}
 
 		// When a report is being edited
@@ -206,11 +207,22 @@ class dssg {
 		$incident_id = Event::$data;
 		$incident = ORM::factory('incident', $incident_id);
 		
+		if (preg_match('/^admin\/reports\/edit\/\d+$/', router::$current_uri))
+		{
+			$base_report_path = 'admin/reports/edit/';
+		}
+		
+		if (preg_match('/^reports\/view\/\d+$/', router::$current_uri))
+		{
+			$base_report_path = 'reports/view/';
+		}
+		
 		// Get similar reports
 		$similar_reports = $this->_dssg_api->similar_reports($incident, 5);
 		$reports = $similar_reports['reports'];
 		View::factory('admin/reports/similar')
 			->bind('reports', $reports)
+			->bind('base_report_path', $base_report_path)
 			->render(TRUE);
 	}
 }
